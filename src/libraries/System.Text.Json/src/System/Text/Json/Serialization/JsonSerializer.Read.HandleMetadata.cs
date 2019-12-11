@@ -90,7 +90,7 @@ namespace System.Text.Json
             return MetadataPropertyName.NoMetadata;
         }
 
-        private static void HandleReference(JsonSerializerOptions options, ref ReadStack state, ref Utf8JsonReader reader)
+        private static void HandleReference(ref ReadStack state)
         {
             object referenceValue = state.ResolveReference(state.Current.ReferenceId);
             if (state.Current.IsProcessingProperty(ClassType.Dictionary))
@@ -101,7 +101,7 @@ namespace System.Text.Json
             else
             {
                 state.Current.ReturnValue = referenceValue;
-                HandleEndObjectRef(ref state);
+                HandleEndObject(ref state);
             }
 
             state.Current.ShouldHandleReference = false;

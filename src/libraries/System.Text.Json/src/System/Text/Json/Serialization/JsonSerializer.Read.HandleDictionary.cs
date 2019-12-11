@@ -53,6 +53,14 @@ namespace System.Text.Json
 
                     state.Current.ReturnValue = classInfo.CreateObject();
                 }
+                else if (options.ReferenceHandling.ShouldReadPreservedReferences() && state.Current.IsProcessingEnumerable())
+                {
+                    Type preservedObjType = state.Current.JsonClassInfo.PolicyProperty.GetJsonPreservedReferenceType();
+                    // Re-Initialize the current frame.
+                    state.Current.Initialize(preservedObjType, options);
+                    state.Current.ReturnValue = state.Current.JsonClassInfo.CreateObject();
+                    state.Current.IsPreservedArray = true;
+                }
                 else
                 {
                     ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(classInfo.Type);

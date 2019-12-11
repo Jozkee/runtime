@@ -26,6 +26,11 @@ namespace System.Text.Json
             {
                 jsonPropertyInfo = state.Current.JsonClassInfo.GetOrAddPolymorphicProperty(jsonPropertyInfo, typeof(object), options);
             }
+            else if (state.Current.ReadMetadataValue)
+            {
+                HandleMetadataPropertyValue(ref reader, ref state);
+                return;
+            }
 
             jsonPropertyInfo.Read(tokenType, ref state, ref reader);
         }

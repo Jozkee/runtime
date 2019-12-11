@@ -14,6 +14,9 @@ namespace System.Text.Json
 
     public static partial class JsonSerializer
     {
+        [PreserveDependency("get_Values", "System.Text.Json.JsonPreservedReference`1")]
+        [PreserveDependency("set_Values", "System.Text.Json.JsonPreservedReference`1")]
+        [PreserveDependency(".ctor()", "System.Text.Json.JsonPreservedReference`1")]
         private static void HandleStartObject(JsonSerializerOptions options, ref ReadStack state)
         {
             Debug.Assert(!state.Current.IsProcessingDictionary());
@@ -24,16 +27,41 @@ namespace System.Text.Json
             if (state.Current.IsProcessingEnumerable())
             {
                 // A nested object within an enumerable (non-dictionary).
-
                 if (!state.Current.CollectionPropertyInitialized)
                 {
-                    // We have bad JSON: enumerable element appeared without preceding StartArray token.
-                    ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(state.Current.JsonPropertyInfo.DeclaredPropertyType);
-                }
+                    if (options.ReferenceHandling.ShouldReadPreservedReferences())
+                    {
+                        // Check we are not dealing with an immutable collection or fixed size array.
+                        if (state.Current.JsonPropertyInfo.EnumerableConverter != null)
+                        {
+                            throw new JsonException("Immutable types and fixed size arrays cannot be preserved.");
+                        }
+                        Type preservedObjType = state.Current.JsonPropertyInfo.GetJsonPreservedReferenceType();
+                        if (state.Current.IsProcessingProperty(ClassType.Enumerable))
+                        {
+                            state.Push();
+                            state.Current.Initialize(preservedObjType, options);
+                        }
+                        else
+                        {
+                            // Re-Initialize the current frame.
+                            state.Current.Initialize(preservedObjType, options);
+                        }
 
-                Type objType = state.Current.GetElementType();
-                state.Push();
-                state.Current.Initialize(objType, options);
+                        state.Current.IsPreservedArray = true;
+                    }
+                    else
+                    {
+                        // We have bad JSON: enumerable element appeared without preceding StartArray token.
+                        ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(state.Current.JsonPropertyInfo.DeclaredPropertyType);
+                    }
+                }
+                else
+                {
+                    Type objType = state.Current.GetElementType();
+                    state.Push();
+                    state.Current.Initialize(objType, options);
+                }
             }
             else if (state.Current.JsonPropertyInfo != null)
             {
@@ -164,8 +192,8 @@ namespace System.Text.Json
 
         private static void HandleEndObject(ref ReadStack state)
         {
-            // Only allow dictionaries to be processed here if this is the DataExtensionProperty.
-            Debug.Assert(!state.Current.IsProcessingDictionary() || state.Current.JsonClassInfo.DataExtensionProperty == state.Current.JsonPropertyInfo);
+            // Only allow dictionaries to be processed here if this is the DataExtensionProperty or if it was a preserved reference.
+            Debug.Assert(!state.Current.IsProcessingDictionary() || state.Current.JsonClassInfo.DataExtensionProperty == state.Current.JsonPropertyInfo || state.Current.ShouldHandleReference);
 
             // Check if we are trying to build the sorted cache.
             if (state.Current.PropertyRefCache != null)
@@ -173,7 +201,26 @@ namespace System.Text.Json
                 state.Current.JsonClassInfo.UpdateSortedPropertyCache(ref state.Current);
             }
 
-            object value = state.Current.ReturnValue;
+            object value;
+            if (state.Current.IsPreservedArray)
+            {
+                // Preserved JSON arrays are wrapped into JsonPreservedReference<T> where T is the original type of the enumerable
+                // and Values is the actual enumerable instance being preserved.
+                JsonPropertyInfo info = state.Current.JsonClassInfo.PropertyCache["Values"];
+                value = info.GetValueAsObject(state.Current.ReturnValue);
+
+                if (value == null)
+                {
+                    throw new JsonException(
+                            "Deserializaiton failed for one of these reasons:\n" +
+                                "1. $values property was not present in preserved array.\n" +
+                                "2. " + SR.Format(SR.DeserializeUnableToConvertValue, info.DeclaredPropertyType));
+                }
+            }
+            else
+            {
+                value = state.Current.ReturnValue;
+            }
 
             if (state.IsLastFrame)
             {
