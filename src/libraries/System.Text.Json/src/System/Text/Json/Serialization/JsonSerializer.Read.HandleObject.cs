@@ -99,6 +99,7 @@ namespace System.Text.Json
             }
 
             object value;
+            // Used for ReferenceHandling.Preserve
             if (state.Current.IsPreservedArray)
             {
                 value = GetPreservedArrayValue(ref state);

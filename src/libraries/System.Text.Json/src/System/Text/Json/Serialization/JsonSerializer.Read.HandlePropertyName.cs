@@ -100,6 +100,7 @@ namespace System.Text.Json
             return metadata;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void HandlePropertyNameDefault(ReadOnlySpan<byte> propertyName, ref ReadStack state, ref Utf8JsonReader reader, JsonSerializerOptions options)
         {
             if (reader._stringHasEscaping)
