@@ -16,6 +16,7 @@ namespace System.Text.Json
             // On deserialization: key is TKey.
             // On serialization: value is TKey.
             _referenceMapper = new Dictionary<object, object>();
+            //TODO: add second dictionary that uses reference equals.
         }
 
         // Used on deserialization.
