@@ -46,7 +46,7 @@ namespace System.Text.Json.Serialization
             return _preserveHandlingOnDeserialize == PreserveReferencesHandling.All;
         }
 
-        internal bool ShouldWritePReservedReferences()
+        internal bool ShouldWritePreservedReferences()
         {
             return _preserveHandlingOnSerialize == PreserveReferencesHandling.All;
         }

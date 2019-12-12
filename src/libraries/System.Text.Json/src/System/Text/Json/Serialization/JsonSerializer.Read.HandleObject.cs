@@ -31,24 +31,7 @@ namespace System.Text.Json
                 {
                     if (options.ReferenceHandling.ShouldReadPreservedReferences())
                     {
-                        // Check we are not dealing with an immutable collection or fixed size array.
-                        if (state.Current.JsonPropertyInfo.EnumerableConverter != null)
-                        {
-                            throw new JsonException("Immutable types and fixed size arrays cannot be preserved.");
-                        }
-                        Type preservedObjType = state.Current.JsonPropertyInfo.GetJsonPreservedReferenceType();
-                        if (state.Current.IsProcessingProperty(ClassType.Enumerable))
-                        {
-                            state.Push();
-                            state.Current.Initialize(preservedObjType, options);
-                        }
-                        else
-                        {
-                            // Re-Initialize the current frame.
-                            state.Current.Initialize(preservedObjType, options);
-                        }
-
-                        state.Current.IsPreservedArray = true;
+                        HandlePreservedArray(ref state, options);
                     }
                     else
                     {
@@ -118,18 +101,7 @@ namespace System.Text.Json
             object value;
             if (state.Current.IsPreservedArray)
             {
-                // Preserved JSON arrays are wrapped into JsonPreservedReference<T> where T is the original type of the enumerable
-                // and Values is the actual enumerable instance being preserved.
-                JsonPropertyInfo info = state.Current.JsonClassInfo.PropertyCache["Values"];
-                value = info.GetValueAsObject(state.Current.ReturnValue);
-
-                if (value == null)
-                {
-                    throw new JsonException(
-                            "Deserializaiton failed for one of these reasons:\n" +
-                                "1. $values property was not present in preserved array.\n" +
-                                "2. " + SR.Format(SR.DeserializeUnableToConvertValue, info.DeclaredPropertyType));
-                }
+                value = GetPreservedArrayValue(ref state);
             }
             else
             {
@@ -147,6 +119,43 @@ namespace System.Text.Json
 
                 ApplyObjectToEnumerable(value, ref state);
             }
+        }
+
+        private static object GetPreservedArrayValue(ref ReadStack state)
+        {
+            // Preserved JSON arrays are wrapped into JsonPreservedReference<T> where T is the original type of the enumerable
+            // and Values is the actual enumerable instance being preserved.
+            JsonPropertyInfo info = state.Current.JsonClassInfo.PropertyCache["Values"];
+            object value = info.GetValueAsObject(state.Current.ReturnValue);
+
+            if (value == null)
+            {
+                ThrowHelper.ThrowJsonException_MetadataPreservedArrayValuesNotFound(info.DeclaredPropertyType);
+            }
+
+            return value;
+        }
+
+        private static void HandlePreservedArray(ref ReadStack state, JsonSerializerOptions options)
+        {
+            // Check we are not parsing into immutable or array.
+            if (state.Current.JsonPropertyInfo.EnumerableConverter != null)
+            {
+                ThrowHelper.ThrowJsonException_MetadataCannotParsePreservedObjectIntoImmutable(state.Current.JsonPropertyInfo.DeclaredPropertyType);
+            }
+            Type preservedObjType = state.Current.JsonPropertyInfo.GetJsonPreservedReferenceType();
+            if (state.Current.IsProcessingProperty(ClassType.Enumerable))
+            {
+                state.Push();
+                state.Current.Initialize(preservedObjType, options);
+            }
+            else
+            {
+                // Re-Initialize the current frame.
+                state.Current.Initialize(preservedObjType, options);
+            }
+
+            state.Current.IsPreservedArray = true;
         }
     }
 }

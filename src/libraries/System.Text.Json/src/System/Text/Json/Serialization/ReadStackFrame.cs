@@ -41,6 +41,7 @@ namespace System.Text.Json
         public bool IsPreserved;
         public bool IsPreservedArray;
         public bool DictionaryPropertyIsPreserved;
+        // maybe I can remove ShouldHandleReference if I use ReferenceId = null as false.
         public bool ShouldHandleReference;
         public bool ReadMetadataValue;
         public MetadataPropertyName MetadataProperty;

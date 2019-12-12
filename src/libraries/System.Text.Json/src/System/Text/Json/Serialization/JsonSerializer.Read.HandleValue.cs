@@ -17,6 +17,13 @@ namespace System.Text.Json
                 return;
             }
 
+            // Used for ReferenceHandling.Preserve.
+            if (state.Current.ReadMetadataValue)
+            {
+                HandleMetadataPropertyValue(ref reader, ref state);
+                return;
+            }
+
             JsonPropertyInfo jsonPropertyInfo = state.Current.JsonPropertyInfo;
             if (jsonPropertyInfo == null)
             {
@@ -25,11 +32,6 @@ namespace System.Text.Json
             else if (state.Current.JsonClassInfo.ClassType == ClassType.Unknown)
             {
                 jsonPropertyInfo = state.Current.JsonClassInfo.GetOrAddPolymorphicProperty(jsonPropertyInfo, typeof(object), options);
-            }
-            else if (state.Current.ReadMetadataValue)
-            {
-                HandleMetadataPropertyValue(ref reader, ref state);
-                return;
             }
 
             jsonPropertyInfo.Read(tokenType, ref state, ref reader);
