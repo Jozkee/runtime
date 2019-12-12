@@ -183,7 +183,7 @@ namespace System.Text.Json
             }
             else if (metadata == MetadataPropertyName.Ref)
             {
-                if (state.Current.KeyName != null || isPreserved || state.Current.ShouldHandleReference)
+                if (state.Current.KeyName != null || isPreserved)
                 {
                     ThrowHelper.ThrowJsonException_MetadataReferenceObjectCannotContainOtherProperties();
                 }
@@ -238,7 +238,7 @@ namespace System.Text.Json
                     ThrowHelper.ThrowJsonException_MetadataInvalidReferenceToValueType(state.Current.JsonClassInfo.Type);
                 }
 
-                if (state.Current.PropertyIndex > 0 || state.Current.IsPreserved || state.Current.ShouldHandleReference)
+                if (state.Current.PropertyIndex > 0 || state.Current.IsPreserved)
                 {
                     ThrowHelper.ThrowJsonException_MetadataReferenceObjectCannotContainOtherProperties();
                 }
