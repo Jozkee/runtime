@@ -30,6 +30,7 @@ namespace System.Text.Json.Serialization.Converters
         [PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.ConcurrentStackOfTConverter`2")]
         [PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.DefaultArrayConverter`2")]
         [PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.DictionaryOfStringTValueConverter`2")]
+        [PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.DictionaryOfTKeyTValueConverter`3")]
         [PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.ICollectionOfTConverter`2")]
         [PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.IDictionaryOfStringTValueConverter`2")]
         [PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2")]
@@ -49,6 +50,7 @@ namespace System.Text.Json.Serialization.Converters
             Type converterType;
             Type[] genericArgs;
             Type? elementType = null;
+            Type? dictionaryKeyType = null;
             Type? actualTypeToConvert;
 
             // Array
@@ -80,7 +82,11 @@ namespace System.Text.Json.Serialization.Converters
                 }
                 else
                 {
-                    return null;
+                    //return null;
+                    // Check converter for TKey instead.
+                    converterType = typeof(DictionaryOfTKeyTValueConverter<,,>);
+                    dictionaryKeyType = actualTypeToConvert.GetGenericArguments()[0];//options.GetConverter(actualTypeToConvert.GetGenericArguments()[0]);
+                    elementType = actualTypeToConvert.GetGenericArguments()[1];
                 }
             }
             // Immutable dictionaries from System.Collections.Immutable, e.g. ImmutableDictionary<string, TValue>
@@ -220,9 +226,13 @@ namespace System.Text.Json.Serialization.Converters
                 {
                     genericType = converterType.MakeGenericType(typeToConvert);
                 }
-                else
+                else if (converterType.GetGenericArguments().Length == 2)
                 {
                     genericType = converterType.MakeGenericType(typeToConvert, elementType!);
+                }
+                else
+                {
+                    genericType = converterType.MakeGenericType(typeToConvert, dictionaryKeyType!, elementType!);
                 }
 
                 converter = (JsonConverter)Activator.CreateInstance(

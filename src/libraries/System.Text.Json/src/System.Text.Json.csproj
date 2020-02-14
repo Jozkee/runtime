@@ -60,6 +60,7 @@
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\ConcurrentStackOfTConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\DictionaryDefaultConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\DictionaryOfStringTValueConverter.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\Collection\DictionaryOfTKeyTValue.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\ICollectionOfTConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\IDictionaryConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\IDictionaryOfStringTValueConverter.cs" />
@@ -243,6 +244,7 @@
   <ItemGroup>
     <Reference Include="System.Buffers" />
     <Reference Include="System.Collections.Concurrent" />
+    <Reference Include="System.ComponentModel.TypeConverter" />
     <Reference Include="System.Linq" />
     <Reference Include="System.Memory" />
     <Reference Include="System.Numerics.Vectors" />

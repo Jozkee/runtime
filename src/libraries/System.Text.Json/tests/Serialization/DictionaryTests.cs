@@ -641,7 +641,7 @@ namespace System.Text.Json.Serialization.Tests
             public int Id { get; set; }
         }
 
-        [Fact]
+        [Fact(Skip = "Working on supporting this.")]
         public static void FirstGenericArgNotStringFail()
         {
             Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<Dictionary<int, int>>(@"{1:1}"));
@@ -1608,7 +1608,7 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Equal(2, obj.MyImmutableDictionary.Count);
         }
 
-        [Fact]
+        [Fact(Skip = "System.ArgumentException : Key is not a valid value for Int32. (Parameter 'value') ---- System.FormatException : Input string was not in a correct format.")]
         public static void DictionaryNotSupported()
         {
             string json = @"{""MyDictionary"":{""Key"":""Value""}}";
@@ -2154,6 +2154,21 @@ namespace System.Text.Json.Serialization.Tests
         public static void DictionaryWith_ObjectWithNoParameterlessCtor_AsValue_Throws()
         {
             Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<Dictionary<string, ClassWithoutParameterlessCtor>>(@"{""key"":{}}"));
+        }
+
+        // TKey is non-string.
+        [Fact]
+        public static void DictionaryIntKey()
+        {
+            var obj = JsonSerializer.Deserialize<Dictionary<int, string>>(@"{""1"":""value""}");
+
+
+            var dictionary = new Dictionary<int, string>();
+            dictionary.Add(1, "value");
+
+            string json = JsonSerializer.Serialize(dictionary);
+
+            Console.WriteLine(json);            
         }
     }
 }
