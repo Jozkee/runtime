@@ -2156,17 +2156,30 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<Dictionary<string, ClassWithoutParameterlessCtor>>(@"{""key"":{}}"));
         }
 
+        private class DictionaryWrapper
+        {
+            public Dictionary<int,string> DictionaryProperty { get; set; }
+        }
+
         // TKey is non-string.
         [Fact]
         public static void DictionaryIntKey()
         {
-            var obj = JsonSerializer.Deserialize<Dictionary<int, string>>(@"{""1"":""value""}");
-
-
             var dictionary = new Dictionary<int, string>();
             dictionary.Add(1, "value");
 
             string json = JsonSerializer.Serialize(dictionary);
+
+            var obj = JsonSerializer.Deserialize<Dictionary<int, string>>(json);
+
+            DictionaryWrapper wrapper = new DictionaryWrapper
+            {
+                DictionaryProperty = dictionary
+            };
+
+            json = JsonSerializer.Serialize(wrapper);
+
+            DictionaryWrapper obj2 = JsonSerializer.Deserialize<DictionaryWrapper>(json);
 
             Console.WriteLine(json);            
         }
