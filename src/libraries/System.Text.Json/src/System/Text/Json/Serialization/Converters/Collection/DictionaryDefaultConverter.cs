@@ -2,6 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Buffers.Text;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -32,35 +34,9 @@ namespace System.Text.Json.Serialization.Converters
 
         internal override Type ElementType => typeof(TValue);
 
-        internal TypeConverter? KeyConverter { get; } = GetCompatibleKeyConverter();
+        private static Type KeyType { get; } = typeof(TKey);
 
-        // Is there any chance of this failing because of being static and checking generic type?
-        private static TypeConverter? GetCompatibleKeyConverter()
-        {
-            Type keyType = typeof(TKey);
-            Type stringType = typeof(string);
-
-            if (keyType == stringType)
-            {
-                // Consider making KeyConverter virtual and override on DictionaryOfStringTValue.
-                return null;
-            }
-
-            TypeConverter converter = TypeDescriptor.GetConverter(keyType);
-            if (converter.CanConvertTo(stringType) && converter.CanConvertFrom(stringType))
-            {
-                return converter;
-            }
-
-            // TKey does not have a TypeConverter or the converter can't convert to string, we cannot serialize that.
-            // Consider not throwing here (warm-up), this breaks ExtensionProperty_InvalidDictionary
-            // that needs to throw saying that ExtensionData only supports object and JsonElement
-
-            // Alternatively, return null if the dictionary is ExtensionData.
-
-            //ThrowHelper.ThrowJsonException();
-            return null;
-        }
+        internal KeyConverter? KeyConverter { get; } = KeyConverter.ResolveKeyConverter(KeyType);
 
         protected static JsonConverter<TValue> GetElementConverter(ref ReadStack state)
         {
@@ -87,21 +63,17 @@ namespace System.Text.Json.Serialization.Converters
 
         protected string GetKeyName(TKey key, ref WriteStack state, JsonSerializerOptions options)
         {
+            KeyConverter<TKey> converter = (KeyConverter<TKey>)KeyConverter!;
             Debug.Assert(typeof(TKey) != typeof(string));
-            string keyNameAsString = KeyConverter!.ConvertToString(key);
-            return GetKeyName(keyNameAsString, ref state, options);
+
+            // This could be a ReadOnlySpan<byte> but JsonNamingPolicy only accepts string.
+            string keyAsString = converter.WriteKey(key);
+            return GetKeyName(keyAsString, ref state, options);
         }
 
-        protected TKey ConvertKeyName(string key)
+        protected TKey ConvertKeyName(ReadOnlySpan<byte> keyName)
         {
-            if (KeyConverter == null)
-            {
-                // DictionaryOfString uses state.Current.JsonPropertyNameAsString on its own Add impl.
-                Debug.Assert(typeof(TKey) == typeof(string));
-                return default!; // TODO remove null-forgiving.
-            }
-
-            return (TKey)KeyConverter.ConvertFromString(key);
+            return ((KeyConverter<TKey>)KeyConverter!).ReadKey(keyName);
         }
 
         protected static JsonConverter<TValue> GetValueConverter(ref WriteStack state)
@@ -154,7 +126,7 @@ namespace System.Text.Json.Serialization.Converters
                         string keyName = reader.GetString()!;
                         state.Current.JsonPropertyNameAsString = keyName;
 
-                        TKey key = ConvertKeyName(keyName);
+                        TKey key = ConvertKeyName(reader.GetSpan());
 
                         // Read the value and add.
                         reader.ReadWithVerify();
@@ -183,7 +155,7 @@ namespace System.Text.Json.Serialization.Converters
                         string keyName = reader.GetString()!;
                         state.Current.JsonPropertyNameAsString = keyName;
 
-                        TKey key = ConvertKeyName(keyName);
+                        TKey key = ConvertKeyName(reader.GetSpan());
 
                         reader.ReadWithVerify();
 

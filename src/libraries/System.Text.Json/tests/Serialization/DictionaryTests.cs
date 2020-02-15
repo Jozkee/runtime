@@ -2218,6 +2218,7 @@ namespace System.Text.Json.Serialization.Tests
             dictionary.Add(1, "value");
 
             string json = JsonSerializer.Serialize(dictionary);
+            Console.WriteLine(json);
 
             var obj = JsonSerializer.Deserialize<Dictionary<int, string>>(json);
 
@@ -2227,10 +2228,21 @@ namespace System.Text.Json.Serialization.Tests
             };
 
             json = JsonSerializer.Serialize(wrapper);
+            Console.WriteLine(json);
+
+            // on Annonymous type.
+            json = JsonSerializer.Serialize(new { Dictionary = dictionary });
+            Console.WriteLine(json);
 
             DictionaryWrapper obj2 = JsonSerializer.Deserialize<DictionaryWrapper>(json);
+            Console.WriteLine(json);
 
-            Console.WriteLine(json);            
+            var dictionaryGuid = new Dictionary<Guid, int>();
+            dictionaryGuid.Add(Guid.NewGuid(), 1);
+
+            Console.WriteLine(json);
+            json = JsonSerializer.Serialize(dictionaryGuid);
+            Console.WriteLine(json);
         }
     }
 }
