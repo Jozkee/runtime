@@ -73,7 +73,14 @@ namespace System.Text.Json.Serialization.Converters
 
         protected TKey ConvertKeyName(ReadOnlySpan<byte> keyName)
         {
-            return ((KeyConverter<TKey>)KeyConverter!).ReadKey(keyName);
+            // string keys do not use KeyConverter, they use state.Current.JsonPropertyNameAsString, so returning default is fine here.
+            if (KeyConverter == null)
+            {
+                Debug.Assert(typeof(TKey) == typeof(string));
+                return default!;
+            }
+
+            return ((KeyConverter<TKey>)KeyConverter).ReadKey(keyName);
         }
 
         protected static JsonConverter<TValue> GetValueConverter(ref WriteStack state)
