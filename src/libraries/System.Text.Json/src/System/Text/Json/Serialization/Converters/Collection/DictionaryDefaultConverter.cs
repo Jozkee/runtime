@@ -34,9 +34,7 @@ namespace System.Text.Json.Serialization.Converters
 
         internal override Type ElementType => typeof(TValue);
 
-        private static Type KeyType { get; } = typeof(TKey);
-
-        internal KeyConverter? KeyConverter { get; } = KeyConverter.ResolveKeyConverter(KeyType);
+        internal override Type KeyType => typeof(TKey);
 
         protected static JsonConverter<TValue> GetElementConverter(ref ReadStack state)
         {
@@ -59,28 +57,6 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             return key;
-        }
-
-        protected string GetKeyName(TKey key, ref WriteStack state, JsonSerializerOptions options)
-        {
-            KeyConverter<TKey> converter = (KeyConverter<TKey>)KeyConverter!;
-            Debug.Assert(typeof(TKey) != typeof(string));
-
-            // This could be a ReadOnlySpan<byte> but JsonNamingPolicy only accepts string.
-            string keyAsString = converter.WriteKey(key);
-            return GetKeyName(keyAsString, ref state, options);
-        }
-
-        protected TKey ConvertKeyName(ReadOnlySpan<byte> keyName)
-        {
-            // string keys do not use KeyConverter, they use state.Current.JsonPropertyNameAsString, so returning default is fine here.
-            if (KeyConverter == null)
-            {
-                Debug.Assert(typeof(TKey) == typeof(string));
-                return default!;
-            }
-
-            return ((KeyConverter<TKey>)KeyConverter).ReadKey(keyName);
         }
 
         protected static JsonConverter<TValue> GetValueConverter(ref WriteStack state)
@@ -112,6 +88,7 @@ namespace System.Text.Json.Serialization.Converters
                 CreateCollection(ref state);
 
                 JsonConverter<TValue> elementConverter = GetElementConverter(ref state);
+                KeyConverter<TKey> keyConverter = (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
                 if (elementConverter.CanUseDirectReadOrWrite)
                 {
                     // Process all elements.
@@ -130,10 +107,8 @@ namespace System.Text.Json.Serialization.Converters
                             ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(TypeToConvert);
                         }
 
-                        string keyName = reader.GetString()!;
-                        state.Current.JsonPropertyNameAsString = keyName;
-
-                        TKey key = ConvertKeyName(reader.GetSpan());
+                        state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                        TKey key = GetKeyAsTKey(keyConverter, reader.GetSpan());
 
                         // Read the value and add.
                         reader.ReadWithVerify();
@@ -159,10 +134,8 @@ namespace System.Text.Json.Serialization.Converters
                             ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(TypeToConvert);
                         }
 
-                        string keyName = reader.GetString()!;
-                        state.Current.JsonPropertyNameAsString = keyName;
-
-                        TKey key = ConvertKeyName(reader.GetSpan());
+                        state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                        TKey key = GetKeyAsTKey(keyConverter, reader.GetSpan());
 
                         reader.ReadWithVerify();
 
@@ -339,6 +312,24 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             return success;
+        }
+
+        private TKey GetKeyAsTKey(KeyConverter<TKey> keyConverter, ReadOnlySpan<byte> keyNameSpan)
+        {
+            TKey key;
+            // For DictionaryOfString*Converter, we don't use a keyCovnerter.
+            if (keyConverter == null)
+            {
+                Debug.Assert(typeof(TKey) == typeof(string));
+                // We return default since we actually use state.Current.JsonPropertyNameAsString on the Add method.
+                key = default!;
+            }
+            else
+            {
+                key = keyConverter.ReadKey(keyNameSpan);
+            }
+
+            return key;
         }
     }
 }

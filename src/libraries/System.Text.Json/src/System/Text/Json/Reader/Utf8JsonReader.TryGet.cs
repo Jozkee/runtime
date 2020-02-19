@@ -595,6 +595,22 @@ namespace System.Text.Json
             return false;
         }
 
+        // Gets value without validation.
+        // TODO: call this on KeyConverter.
+        internal bool TryGetInt32Unsafe(out int value)
+        {
+            ReadOnlySpan<byte> span = HasValueSequence ? ValueSequence.ToArray() : ValueSpan;
+            if (Utf8Parser.TryParse(span, out int tmp, out int bytesConsumed)
+                && span.Length == bytesConsumed)
+            {
+                value = tmp;
+                return true;
+            }
+
+            value = 0;
+            return false;
+        }
+
         /// <summary>
         /// Parses the current JSON token value from the source as a <see cref="long"/>.
         /// Returns <see langword="true"/> if the entire UTF-8 encoded token value can be successfully

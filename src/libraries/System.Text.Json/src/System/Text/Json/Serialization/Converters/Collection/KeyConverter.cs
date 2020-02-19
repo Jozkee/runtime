@@ -3,6 +3,7 @@ using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Unicode;
 
 namespace System.Text.Json.Serialization.Converters
 {
@@ -57,6 +58,9 @@ namespace System.Text.Json.Serialization.Converters
     {
         public abstract T ReadKey(ReadOnlySpan<byte> key);
         public abstract string WriteKey(T key);
+        public abstract void WriteKeySpan(Span<byte> buffer, T Key);
+        public abstract int DetermineKeyLength(T key);
+
         public override Type Type => typeof(T);
     }
 
@@ -70,16 +74,24 @@ namespace System.Text.Json.Serialization.Converters
 
         public override string WriteKey(int key)
         {
+            return key.ToString();
+        }
+
+        public override void WriteKeySpan(Span<byte> buffer, int key)
+        {
+            Utf8Formatter.TryFormat(key, buffer, out int _);
+        }
+
+        public override int DetermineKeyLength(int key)
+        {
             int length = (int)Math.Log10(Math.Abs(key)) + 1;
-            // add extra slot for negative sign.
+
             if (key < 0)
             {
                 length++;
             }
 
-            byte[] arr = new byte[length];
-            Utf8Formatter.TryFormat(key, arr, out int _);
-            return Encoding.UTF8.GetString(arr);
+            return length;
         }
     }
 
@@ -93,9 +105,17 @@ namespace System.Text.Json.Serialization.Converters
 
         public override string WriteKey(Guid key)
         {
-            byte[] arr = new byte[36];
-            Utf8Formatter.TryFormat(key, arr, out int _);
-            return Encoding.UTF8.GetString(arr);
+            return key.ToString();
+        }
+
+        public override void WriteKeySpan(Span<byte> buffer, Guid key)
+        {
+            Utf8Formatter.TryFormat(key, buffer, out int _);
+        }
+
+        public override int DetermineKeyLength(Guid _)
+        {
+            return JsonConstants.MaximumFormatGuidLength;
         }
     }
 }

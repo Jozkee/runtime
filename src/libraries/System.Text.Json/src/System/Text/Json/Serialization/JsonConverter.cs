@@ -46,6 +46,7 @@ namespace System.Text.Json.Serialization
         internal abstract JsonPropertyInfo CreateJsonPropertyInfo();
 
         internal abstract Type? ElementType { get; }
+        internal virtual Type? KeyType { get; }
 
         // For polymorphic cases, the concrete type to create.
         internal virtual Type RuntimeType => TypeToConvert;

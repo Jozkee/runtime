@@ -282,5 +282,48 @@ namespace System.Text.Json
                 yield return new UriConverter();
             }
         }
+
+        // KeyConverter
+        internal KeyConverter? GetOrAddKeyConverter(Type keyType)
+        {
+            if (s_keyConverters.TryGetValue(keyType!, out KeyConverter? converter))
+            {
+                return converter;
+            }
+            else
+            {
+                // Throw?
+                return null;
+            }
+        }
+        // The global list of built-in key converters.
+        private static readonly Dictionary<Type, KeyConverter> s_keyConverters = GetSupportedKeyConverters();
+
+        private const int NumberOfKeyConverters = 2;
+
+        private static Dictionary<Type, KeyConverter> GetSupportedKeyConverters()
+        {
+            var converters = new Dictionary<Type, KeyConverter>(NumberOfKeyConverters);
+
+            // Use a dictionary for simple converters.
+            foreach (KeyConverter converter in KeyConverters)
+            {
+                converters.Add(converter.Type, converter);
+            }
+
+            Debug.Assert(NumberOfKeyConverters == converters.Count);
+
+            return converters;
+        }
+
+        private static IEnumerable<KeyConverter> KeyConverters
+        {
+            get
+            {
+                // When adding to this, update NumberOfKeyConverters above.
+                yield return new Int32KeyConverter();
+                yield return new GuidKeyConverter();
+            }
+        }
     }
 }

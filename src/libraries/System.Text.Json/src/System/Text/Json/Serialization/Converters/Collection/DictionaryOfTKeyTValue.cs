@@ -51,14 +51,13 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             JsonConverter<TValue> valueConverter = GetValueConverter(ref state);
+            KeyConverter<TKey> keyConverter = (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
             if (!state.SupportContinuation && valueConverter.CanUseDirectReadOrWrite)
             {
                 // Fast path that avoids validation and extra indirection.
                 do
                 {
-                    string key = GetKeyName(enumerator.Current.Key, ref state, options);
-                    writer.WritePropertyName(key);
-                    //keyConverter.Write(writer, enumerator.Current.Key, options);
+                    WriteKeyName(keyConverter, enumerator.Current.Key, ref state, writer, options);
                     valueConverter.Write(writer, enumerator.Current.Value, options);
                 } while (enumerator.MoveNext());
             }
@@ -77,8 +76,7 @@ namespace System.Text.Json.Serialization.Converters
                     if (state.Current.PropertyState < StackFramePropertyState.Name)
                     {
                         state.Current.PropertyState = StackFramePropertyState.Name;
-                        string key = GetKeyName(enumerator.Current.Key, ref state, options);
-                        writer.WritePropertyName(key);
+                        WriteKeyName(keyConverter, enumerator.Current.Key, ref state, writer, options);
                     }
 
                     if (!valueConverter.TryWrite(writer, element, options, ref state))
@@ -92,6 +90,29 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             return true;
+        }
+
+        private void WriteKeyName(KeyConverter<TKey> keyConverter, TKey key, ref WriteStack state, Utf8JsonWriter writer, JsonSerializerOptions options)
+        {
+            // DictionaryKeyPolicy.ConverterName can only take a string key name,
+            // So we avoid allocating the string when there is no DictionaryKeyPolicy.
+            if (options.DictionaryKeyPolicy == null)
+            {
+
+                int length = keyConverter.DetermineKeyLength(key);
+                Span<byte> keyNameSpan = stackalloc byte[length];
+
+                keyConverter.WriteKeySpan(keyNameSpan, key);
+                writer.WritePropertyName(keyNameSpan);
+            }
+            else
+            {
+                string keyNameString = keyConverter.WriteKey(key);
+                // Apply KeyPolicy.
+                // TODO: DictionaryKeyPolicy != null check is repeated on GetKeyName.
+                keyNameString = GetKeyName(keyNameString, ref state, options);
+                writer.WritePropertyName(keyNameString);
+            }
         }
     }
 }
