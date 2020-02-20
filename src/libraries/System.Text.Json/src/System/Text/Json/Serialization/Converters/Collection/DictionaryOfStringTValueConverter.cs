@@ -55,7 +55,7 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             JsonConverter<TValue> converter = GetValueConverter(ref state);
-            KeyConverter<string> keyConverter = (KeyConverter<string>)state.Current.JsonClassInfo.KeyConverter;
+            KeyConverter<string> keyConverter = GetKeyConverter(ref state);
 
             if (!state.SupportContinuation && converter.CanUseDirectReadOrWrite)
             {

@@ -51,7 +51,8 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             JsonConverter<TValue> valueConverter = GetValueConverter(ref state);
-            KeyConverter<TKey> keyConverter = (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
+            KeyConverter<TKey> keyConverter = GetKeyConverter(ref state);
+
             if (!state.SupportContinuation && valueConverter.CanUseDirectReadOrWrite)
             {
                 // Fast path that avoids validation and extra indirection.

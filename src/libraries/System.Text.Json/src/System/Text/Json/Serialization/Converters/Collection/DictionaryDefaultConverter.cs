@@ -67,6 +67,9 @@ namespace System.Text.Json.Serialization.Converters
             return converter;
         }
 
+        protected static KeyConverter<TKey> GetKeyConverter(ref WriteStack state) => (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
+        protected static KeyConverter<TKey> GetKeyConverter(ref ReadStack state) => (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
+
         internal sealed override bool OnTryRead(
             ref Utf8JsonReader reader,
             Type typeToConvert,
@@ -88,7 +91,7 @@ namespace System.Text.Json.Serialization.Converters
                 CreateCollection(ref state);
 
                 JsonConverter<TValue> elementConverter = GetElementConverter(ref state);
-                KeyConverter<TKey> keyConverter = (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
+                KeyConverter<TKey> keyConverter = GetKeyConverter(ref state);
 
                 if (keyConverter == null)
                 {
