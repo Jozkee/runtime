@@ -9,6 +9,7 @@ using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Reflection;
 using System.Text.Encodings.Web;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace System.Text.Json.Serialization.Tests
@@ -2210,6 +2211,11 @@ namespace System.Text.Json.Serialization.Tests
             public Dictionary<int,string> DictionaryProperty { get; set; }
         }
 
+        private class MyPoco
+        {
+            public string MyProperty { get; set; }
+        }
+
         // TKey is non-string.
         [Fact]
         public static void DictionaryIntKey()
@@ -2243,6 +2249,67 @@ namespace System.Text.Json.Serialization.Tests
             Console.WriteLine(json);
             json = JsonSerializer.Serialize(dictionaryGuid);
             Console.WriteLine(json);
+
+            // TValue is complex object
+            Dictionary<int, MyPoco> dictionaryC = new Dictionary<int, MyPoco>();
+            dictionaryC.Add(1, new MyPoco { MyProperty = "PropertyValue" });
+
+            json = JsonSerializer.Serialize(dictionaryC);
+            Console.WriteLine(json);
+        }
+
+        private class ClassWithOverflow
+        {
+            public Dictionary<string, object> MyDictionary { get; set; }
+
+            [JsonExtensionData]
+            public Dictionary<string, object> MyOverflow { get; set; }
+
+        }
+
+        [Fact]
+        public static void DictionaryIntKeyExtension()
+        {
+            var root = new ClassWithOverflow();
+            root.MyDictionary = new Dictionary<string, object>();
+            root.MyDictionary.Add("key1", 100);
+
+
+            root.MyOverflow = new Dictionary<string, object>();
+            root.MyOverflow.Add("key0", JsonDocument.Parse("{}").RootElement);
+            root.MyOverflow.Add("key2", 200);
+            root.MyOverflow.Add("key3", new MyPoco() { MyProperty = "Test" });
+
+            string json = JsonSerializer.Serialize(root);
+            Console.WriteLine(json);
+        }
+
+        [Fact]
+        public static void Perf_DictionaryIntKey()
+        {
+            var dictionary = new Dictionary<int, int>();
+            dictionary.Add(1, 1);
+
+            string json;
+            for (int i = 0; i < 100_000; i++)
+            {
+                json = JsonSerializer.Serialize(dictionary);
+
+            }
+        }
+
+        [Fact]
+        public static void Perf_DictionaryStringKey()
+        {
+            var dictionary = new Dictionary<string, int>();
+            dictionary.Add("key", 1);
+
+            string json;
+            for (int i = 0; i < 100_000; i++)
+            {
+                json = JsonSerializer.Serialize(dictionary);
+
+            }
         }
     }
 }
