@@ -55,13 +55,16 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             JsonConverter<TValue> converter = GetValueConverter(ref state);
+            KeyConverter<string> keyConverter = (KeyConverter<string>)state.Current.JsonClassInfo.KeyConverter;
+
             if (!state.SupportContinuation && converter.CanUseDirectReadOrWrite)
             {
                 // Fast path that avoids validation and extra indirection.
                 do
                 {
-                    string key = GetKeyName(enumerator.Current.Key, ref state, options);
-                    writer.WritePropertyName(key);
+                    //string key = GetKeyName(enumerator.Current.Key, ref state, options);
+                    //writer.WritePropertyName(key);
+                    keyConverter.WriteKey(writer, enumerator.Current.Key, options, state.Current.IgnoreDictionaryKeyPolicy);
                     converter.Write(writer, enumerator.Current.Value, options);
                 } while (enumerator.MoveNext());
             }
@@ -79,8 +82,9 @@ namespace System.Text.Json.Serialization.Converters
                     if (state.Current.PropertyState < StackFramePropertyState.Name)
                     {
                         state.Current.PropertyState = StackFramePropertyState.Name;
-                        string key = GetKeyName(enumerator.Current.Key, ref state, options);
-                        writer.WritePropertyName(key);
+                        //string key = GetKeyName(enumerator.Current.Key, ref state, options);
+                        //writer.WritePropertyName(key);
+                        keyConverter.WriteKey(writer, enumerator.Current.Key, options, state.Current.IgnoreDictionaryKeyPolicy);
                     }
 
                     if (!converter.TryWrite(writer, element, options, ref state))

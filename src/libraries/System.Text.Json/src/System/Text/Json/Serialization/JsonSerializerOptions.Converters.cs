@@ -299,7 +299,7 @@ namespace System.Text.Json
         // The global list of built-in key converters.
         private static readonly Dictionary<Type, KeyConverter> s_keyConverters = GetSupportedKeyConverters();
 
-        private const int NumberOfKeyConverters = 2;
+        private const int NumberOfKeyConverters = 3;
 
         private static Dictionary<Type, KeyConverter> GetSupportedKeyConverters()
         {
@@ -321,6 +321,7 @@ namespace System.Text.Json
             get
             {
                 // When adding to this, update NumberOfKeyConverters above.
+                yield return new StringKeyConverter();
                 yield return new Int32KeyConverter();
                 yield return new GuidKeyConverter();
             }

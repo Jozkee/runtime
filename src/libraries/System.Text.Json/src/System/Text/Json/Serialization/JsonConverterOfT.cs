@@ -288,9 +288,12 @@ namespace System.Text.Json.Serialization
             bool success;
             JsonDictionaryConverter<T> dictionaryConverter = (JsonDictionaryConverter<T>)this;
 
-            if (ClassType == ClassType.Value)
+            if (ClassType == ClassType.Value) // This is always dictionary. Maybe is hit when the Dictionary<stirng, object have a custom converter?
             {
                 Debug.Assert(!state.IsContinuation);
+                Debug.Assert(false);
+
+                Debug.WriteLine("Im hit!");
 
                 int originalPropertyDepth = writer.CurrentDepth;
 
@@ -317,6 +320,7 @@ namespace System.Text.Json.Serialization
 
                 // Ignore the naming policy for extension data.
                 state.Current.IgnoreDictionaryKeyPolicy = true;
+                state.Current.DeclaredJsonPropertyInfo = state.Current.JsonClassInfo.ElementClassInfo!.PolicyProperty!;
 
                 success = dictionaryConverter.OnWriteResume(writer, value, options, ref state);
                 if (success)

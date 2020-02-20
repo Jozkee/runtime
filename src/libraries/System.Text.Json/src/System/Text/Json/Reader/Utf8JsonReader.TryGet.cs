@@ -583,21 +583,12 @@ namespace System.Text.Json
                 throw ThrowHelper.GetInvalidOperationException_ExpectedNumber(TokenType);
             }
 
-            ReadOnlySpan<byte> span = HasValueSequence ? ValueSequence.ToArray() : ValueSpan;
-            if (Utf8Parser.TryParse(span, out int tmp, out int bytesConsumed)
-                && span.Length == bytesConsumed)
-            {
-                value = tmp;
-                return true;
-            }
-
-            value = 0;
-            return false;
+            return TryGetInt32AfterValidation(out value);
         }
 
         // Gets value without validation.
         // TODO: call this on KeyConverter.
-        internal bool TryGetInt32Unsafe(out int value)
+        internal bool TryGetInt32AfterValidation(out int value)
         {
             ReadOnlySpan<byte> span = HasValueSequence ? ValueSequence.ToArray() : ValueSpan;
             if (Utf8Parser.TryParse(span, out int tmp, out int bytesConsumed)
@@ -961,6 +952,11 @@ namespace System.Text.Json
                 throw ThrowHelper.GetInvalidOperationException_ExpectedString(TokenType);
             }
 
+            return TryGetGuidAfterValidation(out value);
+        }
+
+        internal bool TryGetGuidAfterValidation(out Guid value)
+        {
             ReadOnlySpan<byte> span = stackalloc byte[0];
 
             if (HasValueSequence)

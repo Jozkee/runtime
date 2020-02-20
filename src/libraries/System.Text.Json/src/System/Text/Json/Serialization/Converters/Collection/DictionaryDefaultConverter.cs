@@ -89,6 +89,12 @@ namespace System.Text.Json.Serialization.Converters
 
                 JsonConverter<TValue> elementConverter = GetElementConverter(ref state);
                 KeyConverter<TKey> keyConverter = (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
+
+                if (keyConverter == null)
+                {
+                    throw new JsonException("Dictionary key not supported");
+                }
+
                 if (elementConverter.CanUseDirectReadOrWrite)
                 {
                     // Process all elements.
@@ -107,8 +113,9 @@ namespace System.Text.Json.Serialization.Converters
                             ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(TypeToConvert);
                         }
 
+                        // TODO: maybe we can avoid this call when TKey is string since we can re-use the KeyConverter key.
                         state.Current.JsonPropertyNameAsString = reader.GetString()!;
-                        TKey key = GetKeyAsTKey(keyConverter, reader.GetSpan());
+                        keyConverter.ReadKey(ref reader, out TKey key);
 
                         // Read the value and add.
                         reader.ReadWithVerify();
@@ -135,7 +142,7 @@ namespace System.Text.Json.Serialization.Converters
                         }
 
                         state.Current.JsonPropertyNameAsString = reader.GetString()!;
-                        TKey key = GetKeyAsTKey(keyConverter, reader.GetSpan());
+                        keyConverter.ReadKey(ref reader, out TKey key);
 
                         reader.ReadWithVerify();
 
@@ -312,24 +319,6 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             return success;
-        }
-
-        private TKey GetKeyAsTKey(KeyConverter<TKey> keyConverter, ReadOnlySpan<byte> keyNameSpan)
-        {
-            TKey key;
-            // For DictionaryOfString*Converter, we don't use a keyCovnerter.
-            if (keyConverter == null)
-            {
-                Debug.Assert(typeof(TKey) == typeof(string));
-                // We return default since we actually use state.Current.JsonPropertyNameAsString on the Add method.
-                key = default!;
-            }
-            else
-            {
-                key = keyConverter.ReadKey(keyNameSpan);
-            }
-
-            return key;
         }
     }
 }

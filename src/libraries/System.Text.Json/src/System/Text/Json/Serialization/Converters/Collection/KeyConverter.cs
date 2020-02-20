@@ -2,6 +2,7 @@
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Unicode;
 
@@ -56,66 +57,65 @@ namespace System.Text.Json.Serialization.Converters
 
     internal abstract class KeyConverter<T> : KeyConverter
     {
-        public abstract T ReadKey(ReadOnlySpan<byte> key);
-        public abstract string WriteKey(T key);
-        public abstract void WriteKeySpan(Span<byte> buffer, T Key);
-        public abstract int DetermineKeyLength(T key);
+        public abstract bool ReadKey(ref Utf8JsonReader reader, out T value);
+        public void WriteKey(Utf8JsonWriter writer, [DisallowNull] T value, JsonSerializerOptions options, bool ignoreKeyPolicy)
+        {
+            WriteKeyAsTOrAsString(writer, value, options, ignoreKeyPolicy);
+        }
+        protected abstract void WriteKeyAsT(Utf8JsonWriter writer, T value);
 
         public override Type Type => typeof(T);
+
+        protected void WriteKeyAsTOrAsString(Utf8JsonWriter writer, [DisallowNull] T value, JsonSerializerOptions options, bool ignoreKeyPolicy)
+        {
+            if (options.DictionaryKeyPolicy != null && !ignoreKeyPolicy)
+            {
+                // TODO: Why is value(!) neccessary?
+                string keyNameAsString = options.DictionaryKeyPolicy.ConvertName(value!.ToString()!);
+
+                if (keyNameAsString == null)
+                {
+                    ThrowHelper.ThrowInvalidOperationException_SerializerDictionaryKeyNull(options.DictionaryKeyPolicy.GetType());
+                }
+
+                writer.WritePropertyName(keyNameAsString);
+            }
+            else
+            {
+                WriteKeyAsT(writer, value);
+            }
+        }
     }
 
     internal sealed class Int32KeyConverter : KeyConverter<int>
     {
-        public override int ReadKey(ReadOnlySpan<byte> key)
+        public override bool ReadKey(ref Utf8JsonReader reader, out int value)
         {
-            Utf8Parser.TryParse(key, out int parsedKey, out int _);
-            return parsedKey;
+            return reader.TryGetInt32AfterValidation(out value);
         }
 
-        public override string WriteKey(int key)
-        {
-            return key.ToString();
-        }
-
-        public override void WriteKeySpan(Span<byte> buffer, int key)
-        {
-            Utf8Formatter.TryFormat(key, buffer, out int _);
-        }
-
-        public override int DetermineKeyLength(int key)
-        {
-            int length = (int)Math.Log10(Math.Abs(key)) + 1;
-
-            if (key < 0)
-            {
-                length++;
-            }
-
-            return length;
-        }
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, int key) => writer.WritePropertyName(key);
     }
 
     internal sealed class GuidKeyConverter : KeyConverter<Guid>
     {
-        public override Guid ReadKey(ReadOnlySpan<byte> key)
+        public override bool ReadKey(ref Utf8JsonReader reader, out Guid value)
         {
-            Utf8Parser.TryParse(key, out Guid parsedKey, out int _);
-            return parsedKey;
+            return reader.TryGetGuidAfterValidation(out value);
         }
 
-        public override string WriteKey(Guid key)
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, Guid key) => writer.WritePropertyName(key);
+    }
+
+    internal sealed class StringKeyConverter : KeyConverter<string>
+    {
+        public override bool ReadKey(ref Utf8JsonReader reader, out string value)
         {
-            return key.ToString();
+            value = reader.GetString()!;
+
+            return true;
         }
 
-        public override void WriteKeySpan(Span<byte> buffer, Guid key)
-        {
-            Utf8Formatter.TryFormat(key, buffer, out int _);
-        }
-
-        public override int DetermineKeyLength(Guid _)
-        {
-            return JsonConstants.MaximumFormatGuidLength;
-        }
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, string key) => writer.WritePropertyName(key);
     }
 }
