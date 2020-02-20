@@ -2220,6 +2220,12 @@ namespace System.Text.Json.Serialization.Tests
         [Fact]
         public static void DictionaryIntKey()
         {
+            var dict = new Dictionary<string, int>();
+            dict.Add("key", 1);
+            string json0 = JsonSerializer.Serialize(dict);
+
+            dict = JsonSerializer.Deserialize<Dictionary<string, int>>(json0);
+
             var dictionary = new Dictionary<int, string>();
             dictionary.Add(1, "value");
 

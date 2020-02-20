@@ -117,8 +117,18 @@ namespace System.Text.Json.Serialization.Converters
                         }
 
                         // TODO: maybe we can avoid this call when TKey is string since we can re-use the KeyConverter key.
-                        state.Current.JsonPropertyNameAsString = reader.GetString()!;
-                        keyConverter.ReadKey(ref reader, out TKey key);
+                        TKey key = default;
+                        // All other supported TKeys are value types,
+                        // only string can be null.
+                        if (key == null)
+                        {
+                            state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                        }
+                        else
+                        {
+                            state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                            keyConverter.ReadKey(ref reader, out key);
+                        }
 
                         // Read the value and add.
                         reader.ReadWithVerify();
@@ -144,8 +154,18 @@ namespace System.Text.Json.Serialization.Converters
                             ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(TypeToConvert);
                         }
 
-                        state.Current.JsonPropertyNameAsString = reader.GetString()!;
-                        keyConverter.ReadKey(ref reader, out TKey key);
+                        TKey key = default;
+                        // All other supported TKeys are value types,
+                        // only string can be null.
+                        if (key == null)
+                        {
+                            state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                        }
+                        else
+                        {
+                            state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                            keyConverter.ReadKey(ref reader, out key);
+                        }
 
                         reader.ReadWithVerify();
 
