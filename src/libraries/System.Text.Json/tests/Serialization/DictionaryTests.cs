@@ -2220,6 +2220,8 @@ namespace System.Text.Json.Serialization.Tests
         [Fact]
         public static void DictionaryIntKey()
         {
+            var dict0 = JsonSerializer.Deserialize<Dictionary<int, int>>(@"{""123.1"":1123.1}");
+
             var dict = new Dictionary<string, int>();
             dict.Add("key", 1);
             string json0 = JsonSerializer.Serialize(dict);
@@ -2291,6 +2293,40 @@ namespace System.Text.Json.Serialization.Tests
         }
 
         [Fact]
+        public static void DictionaryObjectKey()
+        {
+            var dictionary = new Dictionary<object, object>();
+            dictionary.Add(10, 10);
+
+            string json = JsonSerializer.Serialize(dictionary);
+            Console.WriteLine(json);
+        }
+
+        private enum E
+        {
+            Foo,
+            Bar
+        }
+
+        [Flags]
+        private enum EF
+        {
+            Foo = 1,
+            Bar = 2,
+            Baz = 4
+        }
+
+        [Fact]
+        public static void DictionaryEnumKey()
+        {
+            var dictionary = new Dictionary<E, E>();
+            dictionary.Add(E.Foo, E.Bar);
+
+            string json = JsonSerializer.Serialize(dictionary);
+            Console.WriteLine(json);
+        }
+
+        [Fact]
         public static void Perf_DictionaryIntKey()
         {
             var dictionary = new Dictionary<int, int>();
@@ -2300,6 +2336,20 @@ namespace System.Text.Json.Serialization.Tests
             for (int i = 0; i < 100_000; i++)
             {
                 json = JsonSerializer.Serialize(dictionary);
+
+            }
+        }
+
+        [Fact]
+        public static void Perf_DictionaryIntKeyRead()
+        {
+            var dictionary = new Dictionary<int, int>();
+            dictionary.Add(1, 1);
+
+            string json = JsonSerializer.Serialize(dictionary);
+            for (int i = 0; i < 100_000; i++)
+            {
+                JsonSerializer.Deserialize<Dictionary<int, int>>(json);
 
             }
         }

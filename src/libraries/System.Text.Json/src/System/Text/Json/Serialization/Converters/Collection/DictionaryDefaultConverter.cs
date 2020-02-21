@@ -128,6 +128,7 @@ namespace System.Text.Json.Serialization.Converters
                         {
                             state.Current.JsonPropertyNameAsString = reader.GetString()!;
                             keyConverter.ReadKey(ref reader, out key);
+                            // throw Either the JSON value is not in a supported format, or is out of bounds for an Int32.
                         }
 
                         // Read the value and add.

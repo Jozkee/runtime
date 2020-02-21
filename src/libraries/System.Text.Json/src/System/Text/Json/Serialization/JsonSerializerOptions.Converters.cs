@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Converters;
 
@@ -290,16 +291,39 @@ namespace System.Text.Json
             {
                 return converter;
             }
+            // short-term solution, instead of using a factory pattern like JsonStringEnumConverter,
+            // we just create the enum converter here add we add it to s_keyConverters.
+            else if (keyType.IsEnum)
+            {
+                converter = CreateEnumKeyConverter(keyType);
+                s_keyConverters.Add(keyType, converter);
+
+                return converter;
+            }
             else
             {
-                // Throw?
+                // throw?
                 return null;
             }
         }
+
+        //[PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.EnumKeyConverter`1")]
+        private KeyConverter CreateEnumKeyConverter(Type type)
+        {
+            KeyConverter converter = (KeyConverter)Activator.CreateInstance(
+                typeof(EnumKeyConverter<>).MakeGenericType(type),
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                Array.Empty<object>(),
+                culture: null)!;
+
+            return converter;
+        }
+
         // The global list of built-in key converters.
         private static readonly Dictionary<Type, KeyConverter> s_keyConverters = GetSupportedKeyConverters();
 
-        private const int NumberOfKeyConverters = 3;
+        private const int NumberOfKeyConverters = 4;
 
         private static Dictionary<Type, KeyConverter> GetSupportedKeyConverters()
         {
@@ -324,6 +348,7 @@ namespace System.Text.Json
                 yield return new StringKeyConverter();
                 yield return new Int32KeyConverter();
                 yield return new GuidKeyConverter();
+                yield return new ObjectKeyConverter();
             }
         }
     }

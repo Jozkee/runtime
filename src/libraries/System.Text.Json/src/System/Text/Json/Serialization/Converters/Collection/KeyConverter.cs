@@ -11,48 +11,7 @@ namespace System.Text.Json.Serialization.Converters
     internal abstract class KeyConverter
     {
         public abstract Type Type { get; }
-
-        internal static readonly Dictionary<Type, KeyConverter> s_KeyConverters = GetSupportedKeyConverters();
-
-        internal static KeyConverter? ResolveKeyConverter(Type keyType)
-        {
-            if (s_KeyConverters.TryGetValue(keyType!, out KeyConverter? converter))
-            {
-                return converter;
-            }
-            else
-            {
-                // Throw?
-                return null;
-            }
-        }
-
-        private const int NumberOfKeyConverters = 2;
-
-        private static Dictionary<Type, KeyConverter> GetSupportedKeyConverters()
-        {
-            var converters = new Dictionary<Type, KeyConverter>(NumberOfKeyConverters);
-
-            // Use a dictionary for simple converters.
-            foreach (KeyConverter converter in KeyConverters)
-            {
-                converters.Add(converter.Type, converter);
-            }
-
-            Debug.Assert(NumberOfKeyConverters == converters.Count);
-
-            return converters;
-        }
-
-        private static IEnumerable<KeyConverter> KeyConverters
-        {
-            get
-            {
-                // When adding to this, update NumberOfKeyConverters above.
-                yield return new Int32KeyConverter();
-                yield return new GuidKeyConverter();
-            }
-        }
+        public abstract void WriteKeyAsObject(Utf8JsonWriter writer, object value, JsonSerializerOptions options);
     }
 
     internal abstract class KeyConverter<T> : KeyConverter
@@ -62,10 +21,8 @@ namespace System.Text.Json.Serialization.Converters
         {
             WriteKeyAsTOrAsString(writer, value, options, ignoreKeyPolicy);
         }
-        protected abstract void WriteKeyAsT(Utf8JsonWriter writer, T value);
-
+        protected abstract void WriteKeyAsT(Utf8JsonWriter writer, T value, JsonSerializerOptions options);
         public override Type Type => typeof(T);
-
         protected void WriteKeyAsTOrAsString(Utf8JsonWriter writer, [DisallowNull] T value, JsonSerializerOptions options, bool ignoreKeyPolicy)
         {
             if (options.DictionaryKeyPolicy != null && !ignoreKeyPolicy)
@@ -82,19 +39,21 @@ namespace System.Text.Json.Serialization.Converters
             }
             else
             {
-                WriteKeyAsT(writer, value);
+                WriteKeyAsT(writer, value, options);
             }
         }
+        public override void WriteKeyAsObject(Utf8JsonWriter writer, object value, JsonSerializerOptions options) => WriteKeyAsT(writer, (T)value, options);
     }
 
     internal sealed class Int32KeyConverter : KeyConverter<int>
     {
         public override bool ReadKey(ref Utf8JsonReader reader, out int value)
         {
+            //ThrowHelper.GetFormatException(NumericType.Int32)
             return reader.TryGetInt32AfterValidation(out value);
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, int key) => writer.WritePropertyName(key);
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, int key, JsonSerializerOptions options) => writer.WritePropertyName(key);
     }
 
     internal sealed class GuidKeyConverter : KeyConverter<Guid>
@@ -104,7 +63,7 @@ namespace System.Text.Json.Serialization.Converters
             return reader.TryGetGuidAfterValidation(out value);
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, Guid key) => writer.WritePropertyName(key);
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, Guid key, JsonSerializerOptions options) => writer.WritePropertyName(key);
     }
 
     internal sealed class StringKeyConverter : KeyConverter<string>
@@ -116,6 +75,44 @@ namespace System.Text.Json.Serialization.Converters
             return true;
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, string key) => writer.WritePropertyName(key);
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, string key, JsonSerializerOptions options) => writer.WritePropertyName(key);
+    }
+
+    internal sealed class EnumKeyConverter<TEnum>: KeyConverter<TEnum> where TEnum : struct, Enum
+    {
+        public override bool ReadKey(ref Utf8JsonReader reader, out TEnum value)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, TEnum value, JsonSerializerOptions options)
+        {
+            //string keyName = value.ToString();
+            //writer.WritePropertyName(keyName);
+        }
+    }
+
+    internal sealed class ObjectKeyConverter : KeyConverter<object>
+    {
+        public override bool ReadKey(ref Utf8JsonReader reader, out object value)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override void WriteKeyAsT(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
+        {
+            Type runtimeType = value.GetType();
+            KeyConverter? runtimeTypeConverter = options.GetOrAddKeyConverter(runtimeType);
+
+            // We don't support object itself as TKey, only the other supported types when they are boxed.
+            if (runtimeTypeConverter != null
+                && runtimeTypeConverter != this)
+            {
+                // Redirect to the runtime-type key converter.
+                runtimeTypeConverter.WriteKeyAsObject(writer, value, options);
+            }
+
+            throw new JsonException("key type is not supported");
+        }
     }
 }
