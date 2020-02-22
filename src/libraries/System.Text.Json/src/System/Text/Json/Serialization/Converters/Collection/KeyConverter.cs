@@ -82,13 +82,16 @@ namespace System.Text.Json.Serialization.Converters
     {
         public override bool ReadKey(ref Utf8JsonReader reader, out TEnum value)
         {
-            throw new NotImplementedException();
+            string enumValue = reader.GetString()!;
+            value = Enum.Parse<TEnum>(enumValue);
+
+            return true;//?
         }
 
         protected override void WriteKeyAsT(Utf8JsonWriter writer, TEnum value, JsonSerializerOptions options)
         {
-            //string keyName = value.ToString();
-            //writer.WritePropertyName(keyName);
+            string keyName = value.ToString();
+            writer.WritePropertyName(keyName);
         }
     }
 
