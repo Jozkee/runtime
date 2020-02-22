@@ -76,10 +76,16 @@
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\ImmutableEnumerableOfTConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\IReadOnlyDictionaryOfStringTValueConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\ISetOfTConverter.cs" />
-    <Compile Include="System\Text\Json\Serialization\Converters\Collection\KeyConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\ListOfTConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\QueueOfTConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\StackOfTConverter.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\EnumKeyConverter.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\GuidKeyConverter.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\Int32KeyConverter.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\KeyConverter.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\KeyConverterOfTKey.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\ObjectKeyConverter.cs" />
+    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\StringKeyConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Object\ObjectConverterFactory.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Object\ObjectDefaultConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Value\BooleanConverter.cs" />
