@@ -302,8 +302,7 @@ namespace System.Text.Json
             }
             else
             {
-                // throw?
-                return null;
+                throw new JsonException("Key is not supported");
             }
         }
 

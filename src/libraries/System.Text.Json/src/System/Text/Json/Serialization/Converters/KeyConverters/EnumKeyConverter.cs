@@ -14,6 +14,11 @@ namespace System.Text.Json.Serialization.Converters
             return true;//?
         }
 
+        public override TEnum ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
+        {
+            throw new NotImplementedException();
+        }
+
         protected override void WriteKeyAsT(Utf8JsonWriter writer, TEnum value, JsonSerializerOptions options)
         {
             string keyName = value.ToString();

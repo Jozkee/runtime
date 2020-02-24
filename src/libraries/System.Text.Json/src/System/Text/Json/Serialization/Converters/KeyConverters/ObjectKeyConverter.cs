@@ -11,6 +11,11 @@ namespace System.Text.Json.Serialization.Converters
             throw new NotImplementedException();
         }
 
+        public override object ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
+        {
+            throw new NotImplementedException();
+        }
+
         protected override void WriteKeyAsT(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
         {
             Type runtimeType = value.GetType();
@@ -23,8 +28,10 @@ namespace System.Text.Json.Serialization.Converters
                 // Redirect to the runtime-type key converter.
                 runtimeTypeConverter.WriteKeyAsObject(writer, value, options);
             }
-
-            throw new JsonException("key type is not supported");
+            else
+            {
+                throw new JsonException("key type is not supported");
+            }
         }
     }
 }

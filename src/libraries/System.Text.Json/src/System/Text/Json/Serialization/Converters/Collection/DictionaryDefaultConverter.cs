@@ -93,11 +93,6 @@ namespace System.Text.Json.Serialization.Converters
                 JsonConverter<TValue> elementConverter = GetElementConverter(ref state);
                 KeyConverter<TKey> keyConverter = GetKeyConverter(ref state);
 
-                if (keyConverter == null)
-                {
-                    throw new JsonException("Dictionary key not supported");
-                }
-
                 if (elementConverter.CanUseDirectReadOrWrite)
                 {
                     // Process all elements.
@@ -116,13 +111,13 @@ namespace System.Text.Json.Serialization.Converters
                             ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(TypeToConvert);
                         }
 
-                        // TODO: maybe we can avoid this call when TKey is string since we can re-use the KeyConverter key.
-                        TKey key = default;
-                        // All other supported TKeys are value types,
-                        // only string can be null.
-                        if (key == null)
+                        TKey key;
+                        // We already call reader.GetString(), there is no need to do it again for string keys.
+                        if (keyConverter.Type == typeof(string))
                         {
-                            state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                            string keyAsString = reader.GetString()!;
+                            state.Current.JsonPropertyNameAsString = keyAsString;
+                            key = (TKey)(object)keyAsString;
                         }
                         else
                         {
@@ -155,12 +150,13 @@ namespace System.Text.Json.Serialization.Converters
                             ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(TypeToConvert);
                         }
 
-                        TKey key = default;
-                        // All other supported TKeys are value types,
-                        // only string can be null.
-                        if (key == null)
+                        TKey key;
+                        // We already call reader.GetString(), there is no need to do it again for string keys.
+                        if (keyConverter.Type == typeof(string))
                         {
-                            state.Current.JsonPropertyNameAsString = reader.GetString()!;
+                            string keyAsString = reader.GetString()!;
+                            state.Current.JsonPropertyNameAsString = keyAsString;
+                            key = (TKey)(object)keyAsString;
                         }
                         else
                         {
@@ -258,18 +254,17 @@ namespace System.Text.Json.Serialization.Converters
 
                         state.Current.PropertyState = StackFramePropertyState.Name;
 
+                        ReadOnlySpan<byte> propertyName = reader.GetSpan();
                         // Verify property doesn't contain metadata.
                         if (shouldReadPreservedReferences)
                         {
-                            ReadOnlySpan<byte> propertyName = reader.GetSpan();
                             if (propertyName.Length > 0 && propertyName[0] == '$')
                             {
                                 ThrowHelper.ThrowUnexpectedMetadataException(propertyName, ref reader, ref state);
                             }
                         }
-
+                        state.Current.DictionaryKeyName = propertyName.ToArray();
                         state.Current.JsonPropertyNameAsString = reader.GetString();
-
                     }
 
                     if (state.Current.PropertyState < StackFramePropertyState.ReadValue)
@@ -285,6 +280,17 @@ namespace System.Text.Json.Serialization.Converters
 
                     if (state.Current.PropertyState < StackFramePropertyState.TryRead)
                     {
+                        KeyConverter<TKey> keyConverter = GetKeyConverter(ref state);
+                        TKey key;
+                        if (keyConverter.Type == typeof(string))
+                        {
+                            key = (TKey)(object)state.Current.JsonPropertyNameAsString!;
+                        }
+                        else
+                        {
+                            key = keyConverter.ReadKeyFromBytes(state.Current.DictionaryKeyName);
+                        }
+
                         // Get the value from the converter and add it.
                         bool success = elementConverter.TryRead(ref reader, typeof(TValue), options, ref state, out TValue element);
                         if (!success)
@@ -293,7 +299,7 @@ namespace System.Text.Json.Serialization.Converters
                             return false;
                         }
 
-                        Add(default!, element, options, ref state);
+                        Add(key, element, options, ref state);
                         state.Current.EndElement();
                     }
                 }

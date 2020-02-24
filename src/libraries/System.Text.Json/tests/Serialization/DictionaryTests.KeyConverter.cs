@@ -10,15 +10,15 @@ namespace System.Text.Json.Serialization.Tests
 {
     public static partial class DictionaryKeyConverterTests
     {
-        [Theory]
-        [MemberData(nameof(GetData))]
-        public static void TestDictionaryTKeyTValue(IDictionary dictionary)
-        {
-            string json = JsonSerializer.Serialize(dictionary);
-            // Check is the expected result.
+        //[Theory]
+        //[MemberData(nameof(GetData))]
+        //public static void TestDictionaryTKeyTValue(IDictionary dictionary)
+        //{
+        //    string json = JsonSerializer.Serialize(dictionary);
+        //    // Check is the expected result.
 
-            object copy = JsonSerializer.Deserialize(json, dictionary.GetType());
-        }
+        //    object copy = JsonSerializer.Deserialize(json, dictionary.GetType());
+        //}
 
         private enum MyEnum
         {

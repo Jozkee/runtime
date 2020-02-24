@@ -12,6 +12,11 @@ namespace System.Text.Json.Serialization.Converters
             return reader.TryGetGuidAfterValidation(out value);
         }
 
+        public override Guid ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
+        {
+            throw new NotImplementedException();
+        }
+
         protected override void WriteKeyAsT(Utf8JsonWriter writer, Guid key, JsonSerializerOptions options)
             => writer.WritePropertyName(key);
     }

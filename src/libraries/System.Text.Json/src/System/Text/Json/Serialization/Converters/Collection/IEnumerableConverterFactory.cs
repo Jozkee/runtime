@@ -75,20 +75,9 @@ namespace System.Text.Json.Serialization.Converters
             else if ((actualTypeToConvert = typeToConvert.GetCompatibleGenericBaseClass(typeof(Dictionary<,>))) != null)
             {
                 genericArgs = actualTypeToConvert.GetGenericArguments();
-                if (genericArgs[0] == typeof(string))
-                {
-                    converterType = typeof(DictionaryOfStringTValueConverter<,>);
-                    dictionaryKeyType = genericArgs[0];
-                    elementType = genericArgs[1];
-                }
-                else
-                {
-                    //return null;
-                    // Check converter for TKey instead.
-                    converterType = typeof(DictionaryOfTKeyTValueConverter<,,>);
-                    dictionaryKeyType = genericArgs[0];//options.GetConverter(actualTypeToConvert.GetGenericArguments()[0]);
-                    elementType = genericArgs[1];
-                }
+                converterType = typeof(DictionaryOfTKeyTValueConverter<,,>);
+                dictionaryKeyType = genericArgs[0];
+                elementType = genericArgs[1];
             }
             // Immutable dictionaries from System.Collections.Immutable, e.g. ImmutableDictionary<string, TValue>
             else if (typeToConvert.IsImmutableDictionaryType())
