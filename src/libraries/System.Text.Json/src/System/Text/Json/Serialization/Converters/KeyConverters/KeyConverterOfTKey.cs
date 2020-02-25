@@ -6,45 +6,63 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace System.Text.Json.Serialization.Converters
 {
-    internal abstract class KeyConverter<T> : KeyConverter
+    internal abstract class KeyConverter<TKey> : JsonConverter<TKey>
     {
-        public override Type Type => typeof(T);
+        // This is less API friendly than just call Read and keep the resulting dictionary key boxed in state.Current.
+        // Maybe we can call this only for internal converters.
+        public abstract TKey ReadKeyFromBytes(ReadOnlySpan<byte> bytes);
 
-        public abstract bool ReadKey(ref Utf8JsonReader reader, out T value);
-
-        public void WriteKey(Utf8JsonWriter writer, [DisallowNull] T value, JsonSerializerOptions options, bool ignoreKeyPolicy)
+        internal override bool OnTryWrite(Utf8JsonWriter writer, TKey value, JsonSerializerOptions options, ref WriteStack state)
         {
-            WriteKeyAsTOrAsString(writer, value, options, ignoreKeyPolicy);
-        }
-
-        protected abstract void WriteKeyAsT(Utf8JsonWriter writer, T value, JsonSerializerOptions options);
-
-        protected void WriteKeyAsTOrAsString(Utf8JsonWriter writer, [DisallowNull] T value, JsonSerializerOptions options, bool ignoreKeyPolicy)
-        {
-            if (options.DictionaryKeyPolicy != null && !ignoreKeyPolicy)
+            // If we need to apply the policy, we are forced to get a string since that is the only type that ConvertName can take as argument.
+            if (options.DictionaryKeyPolicy != null && !state.Current.IgnoreDictionaryKeyPolicy)
             {
                 // TODO: Why is value(!) neccessary?
-                // TODO: if you have a key policy and your key is object, we are going to call ToString o the type, even if is not supported.
-                string keyNameAsString = options.DictionaryKeyPolicy.ConvertName(value!.ToString()!);
+                // TODO: if you have a key policy and your key is object, we are going to call ToString on the type, even if is not supported.
+                string keyAsString = value!.ToString()!;
+                keyAsString = options.DictionaryKeyPolicy.ConvertName(keyAsString);
 
-                if (keyNameAsString == null)
+                if (keyAsString == null)
                 {
                     ThrowHelper.ThrowInvalidOperationException_SerializerDictionaryKeyNull(options.DictionaryKeyPolicy.GetType());
                 }
 
-                writer.WritePropertyName(keyNameAsString);
+                writer.WritePropertyName(keyAsString);
             }
             else
             {
-                WriteKeyAsT(writer, value, options);
+                Write(writer, value!, options);
             }
+
+            return true; // return always true?
         }
 
-        public override void WriteKeyAsObject(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
-            => WriteKeyAsT(writer, (T)value, options);
+        internal override bool OnTryRead(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options, ref ReadStack state, out TKey value)
+        {
+            // We already called reader.GetString(), there is no need to do it again for string keys.
+            if (typeof(TKey) == typeof(string))
+            {
+                value = (TKey)(object)state.Current.JsonPropertyNameAsString!;
+            }
+            else
+            {
+                // Fast path that does not support continuation.
+                if (!state.SupportContinuation && !options.ReferenceHandling.ShouldReadPreservedReferences())
+                {
+                    value = Read(ref reader, typeToConvert, options);
+                }
+                // Slow path where the reader is no longer in TokenType.PropertyName, is in the element; i.e. in TValue.
+                // We remember the PropertyName bytes in the state and parse the key from there.
+                else
+                {
+                    value = ReadKeyFromBytes(state.Current.DictionaryKeyName);
+                }
+            }
 
-        // Used for Read ahead scenarios where the reader already moved to the element position.
-        // Alternatively we could box the TKey on the current ReadStackFrame.
-        public abstract T ReadKeyFromBytes(ReadOnlySpan<byte> bytes);
+            return true;
+        }
+
+        internal override void WriteKeyAsObject(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
+            => Write(writer, (TKey)value, options);
     }
 }

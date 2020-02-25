@@ -285,9 +285,9 @@ namespace System.Text.Json
         }
 
         // KeyConverter
-        internal KeyConverter? GetOrAddKeyConverter(Type keyType)
+        internal JsonConverter? GetOrAddKeyConverter(Type keyType)
         {
-            if (s_keyConverters.TryGetValue(keyType!, out KeyConverter? converter))
+            if (s_keyConverters.TryGetValue(keyType!, out JsonConverter? converter))
             {
                 return converter;
             }
@@ -296,7 +296,8 @@ namespace System.Text.Json
             else if (keyType.IsEnum)
             {
                 converter = CreateEnumKeyConverter(keyType);
-                s_keyConverters.Add(keyType, converter);
+                // Ignore failure case here in multi-threaded cases since the cached item will be equivalent. ???
+                s_keyConverters.TryAdd(keyType, converter);
 
                 return converter;
             }
@@ -306,10 +307,9 @@ namespace System.Text.Json
             }
         }
 
-        //[PreserveDependency(".ctor", "System.Text.Json.Serialization.Converters.EnumKeyConverter`1")]
-        private KeyConverter CreateEnumKeyConverter(Type type)
+        private JsonConverter CreateEnumKeyConverter(Type type)
         {
-            KeyConverter converter = (KeyConverter)Activator.CreateInstance(
+            JsonConverter converter = (JsonConverter)Activator.CreateInstance(
                 typeof(EnumKeyConverter<>).MakeGenericType(type),
                 BindingFlags.Instance | BindingFlags.Public,
                 binder: null,
@@ -320,18 +320,18 @@ namespace System.Text.Json
         }
 
         // The global list of built-in key converters.
-        private static readonly Dictionary<Type, KeyConverter> s_keyConverters = GetSupportedKeyConverters();
+        private static readonly Dictionary<Type, JsonConverter> s_keyConverters = GetSupportedKeyConverters();
 
         private const int NumberOfKeyConverters = 4;
 
-        private static Dictionary<Type, KeyConverter> GetSupportedKeyConverters()
+        private static Dictionary<Type, JsonConverter> GetSupportedKeyConverters()
         {
-            var converters = new Dictionary<Type, KeyConverter>(NumberOfKeyConverters);
+            var converters = new Dictionary<Type, JsonConverter>(NumberOfKeyConverters);
 
             // Use a dictionary for simple converters.
-            foreach (KeyConverter converter in KeyConverters)
+            foreach (JsonConverter converter in KeyConverters)
             {
-                converters.Add(converter.Type, converter);
+                converters.Add(converter.TypeToConvert, converter);
             }
 
             Debug.Assert(NumberOfKeyConverters == converters.Count);
@@ -339,7 +339,7 @@ namespace System.Text.Json
             return converters;
         }
 
-        private static IEnumerable<KeyConverter> KeyConverters
+        private static IEnumerable<JsonConverter> KeyConverters
         {
             get
             {

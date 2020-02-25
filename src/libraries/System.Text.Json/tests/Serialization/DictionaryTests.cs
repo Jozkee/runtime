@@ -2367,5 +2367,37 @@ namespace System.Text.Json.Serialization.Tests
 
             }
         }
+
+        [Fact]
+        public static void QuickTest()
+        {
+            Dictionary<object, int> root = new Dictionary<object, int>();
+            root.Add("Key1", 1);
+
+            string json = JsonSerializer.Serialize(root);
+
+            var copy = JsonSerializer.Deserialize<Dictionary<object, int>>(json);
+            Validate(copy);
+        }
+
+        private static  void Validate(Dictionary<object, int> dictionary)
+        {
+            JsonElement key = JsonDocument.Parse("1").RootElement;
+
+            bool success = dictionary.TryGetValue(key, out int value);
+            //Assert.Equal(Value, value);
+            Console.WriteLine(value);
+        }
+
+        [Fact]
+        public static void QuickTest2()
+        {
+            var root = new Dictionary<int, object>();
+            root.Add(1, 1);
+
+            string json = JsonSerializer.Serialize(root);
+
+            var copy = JsonSerializer.Deserialize<Dictionary<int, object>>(json);
+        }
     }
 }

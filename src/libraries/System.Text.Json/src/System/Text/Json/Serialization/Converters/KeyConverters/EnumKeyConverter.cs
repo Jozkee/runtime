@@ -2,26 +2,39 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Globalization;
+using System.Text.Unicode;
+
 namespace System.Text.Json.Serialization.Converters
 {
     internal sealed class EnumKeyConverter<TEnum> : KeyConverter<TEnum> where TEnum : struct, Enum
     {
-        public override bool ReadKey(ref Utf8JsonReader reader, out TEnum value)
+        public override TEnum Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            string enumValue = reader.GetString()!;
-            value = Enum.Parse<TEnum>(enumValue);
+            string? enumValue = reader.GetString();
+            if (!Enum.TryParse(enumValue, out TEnum value)
+                    && !Enum.TryParse(enumValue, ignoreCase: true, out value))
+            {
+                ThrowHelper.ThrowJsonException();
+            }
 
-            return true;//?
+            return value;
         }
 
         public override TEnum ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
-            throw new NotImplementedException();
+            Span<char> utf16Name = stackalloc char[bytes.Length];
+            Utf8.ToUtf16(bytes, utf16Name, out int bytesRead, out int CharsWritten);
+
+            Enum.TryParse(utf16Name.ToString(), out TEnum result);
+
+            return result;
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, TEnum value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, TEnum value, JsonSerializerOptions options)
         {
             string keyName = value.ToString();
+            // Unlike EnumConverter we don't do any validation here since PropertyName can only be string.
             writer.WritePropertyName(keyName);
         }
     }

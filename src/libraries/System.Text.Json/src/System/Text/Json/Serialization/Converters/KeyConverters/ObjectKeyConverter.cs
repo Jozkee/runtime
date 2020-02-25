@@ -6,25 +6,38 @@ namespace System.Text.Json.Serialization.Converters
 {
     internal sealed class ObjectKeyConverter : KeyConverter<object>
     {
-        public override bool ReadKey(ref Utf8JsonReader reader, out object value)
+        public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            throw new NotImplementedException();
+            // Can't use ParseValue as ObjectConverter does since it does not parse the property name but the value token next to it.
+            return ReadKeyFromBytes(reader.GetSpan());
         }
 
         public override object ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
-            throw new NotImplementedException();
+            // Always wrap property name in quotes since reader.GetSpan() removes it from property names.
+            // The side effect of this is that any boxed number key will be a JsonElement of Type string.
+            byte[] propertyNameArray = new byte[bytes.Length + 2];
+            Span<byte> span = propertyNameArray;
+            span[0] = (byte)'"';
+            bytes.CopyTo(span.Slice(1));
+            span[span.Length - 1] = (byte)'"';
+
+            using (JsonDocument document = JsonDocument.Parse(propertyNameArray))
+            {
+                return document.RootElement.Clone();
+            }
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
         {
             Type runtimeType = value.GetType();
-            KeyConverter? runtimeTypeConverter = options.GetOrAddKeyConverter(runtimeType);
+            JsonConverter? runtimeTypeConverter = options.GetOrAddKeyConverter(runtimeType);
 
             // We don't support object itself as TKey, only the other supported types when they are boxed.
             if (runtimeTypeConverter != null
                 && runtimeTypeConverter != this)
             {
+
                 // Redirect to the runtime-type key converter.
                 runtimeTypeConverter.WriteKeyAsObject(writer, value, options);
             }

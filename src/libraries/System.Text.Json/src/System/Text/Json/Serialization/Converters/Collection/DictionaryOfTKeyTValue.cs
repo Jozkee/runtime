@@ -58,7 +58,7 @@ namespace System.Text.Json.Serialization.Converters
                 // Fast path that avoids validation and extra indirection.
                 do
                 {
-                    keyConverter.WriteKey(writer, enumerator.Current.Key, options, state.Current.IgnoreDictionaryKeyPolicy);
+                    keyConverter.OnTryWrite(writer, enumerator.Current.Key, options, ref state);
                     valueConverter.Write(writer, enumerator.Current.Value, options);
                 } while (enumerator.MoveNext());
             }
@@ -77,7 +77,7 @@ namespace System.Text.Json.Serialization.Converters
                     if (state.Current.PropertyState < StackFramePropertyState.Name)
                     {
                         state.Current.PropertyState = StackFramePropertyState.Name;
-                        keyConverter.WriteKey(writer, enumerator.Current.Key, options, state.Current.IgnoreDictionaryKeyPolicy);
+                        keyConverter.OnTryWrite(writer, enumerator.Current.Key, options, ref state);
                     }
 
                     if (!valueConverter.TryWrite(writer, element, options, ref state))

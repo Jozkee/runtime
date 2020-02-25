@@ -4,15 +4,18 @@
 
 using System.Buffers.Text;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace System.Text.Json.Serialization.Converters
 {
     internal sealed class Int32KeyConverter : KeyConverter<int>
     {
-        public override bool ReadKey(ref Utf8JsonReader reader, out int value)
+        public override int Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            //ThrowHelper.GetFormatException(NumericType.Int32)
-            return reader.TryGetInt32AfterValidation(out value);
+            bool success = reader.TryGetInt32AfterValidation(out int keyValue);
+            Debug.Assert(success);
+
+            return keyValue;
         }
 
         public override int ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
@@ -23,7 +26,6 @@ namespace System.Text.Json.Serialization.Converters
             return keyValue;
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, int key, JsonSerializerOptions options)
-            => writer.WritePropertyName(key);
+        public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options) => writer.WritePropertyName(value);
     }
 }

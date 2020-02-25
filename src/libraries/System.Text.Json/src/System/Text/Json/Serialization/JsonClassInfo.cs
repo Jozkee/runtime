@@ -69,8 +69,8 @@ namespace System.Text.Json
             }
         }
 
-        private KeyConverter? _keyConverter;
-        public KeyConverter KeyConverter
+        private JsonConverter? _keyConverter;
+        public JsonConverter KeyConverter
         {
             get
             {

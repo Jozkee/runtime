@@ -3,21 +3,30 @@
 // See the LICENSE file in the project root for more information.
 
 
+using System.Buffers.Text;
+using System.Diagnostics;
+
 namespace System.Text.Json.Serialization.Converters
 {
     internal sealed class GuidKeyConverter : KeyConverter<Guid>
     {
-        public override bool ReadKey(ref Utf8JsonReader reader, out Guid value)
+        public override Guid Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            return reader.TryGetGuidAfterValidation(out value);
+            bool success = reader.TryGetGuidAfterValidation(out Guid value);
+            Debug.Assert(success);
+
+            return value;
         }
 
         public override Guid ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
-            throw new NotImplementedException();
+            bool success = Utf8Parser.TryParse(bytes, out Guid keyValue, out int _);
+            Debug.Assert(success);
+
+            return keyValue;
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, Guid key, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, Guid key, JsonSerializerOptions options)
             => writer.WritePropertyName(key);
     }
 }

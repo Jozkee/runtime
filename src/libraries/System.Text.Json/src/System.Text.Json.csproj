@@ -81,7 +81,6 @@
     <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\EnumKeyConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\GuidKeyConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\Int32KeyConverter.cs" />
-    <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\KeyConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\KeyConverterOfTKey.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\ObjectKeyConverter.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\KeyConverters\StringKeyConverter.cs" />

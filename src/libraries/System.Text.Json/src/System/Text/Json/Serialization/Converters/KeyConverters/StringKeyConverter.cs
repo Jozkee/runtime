@@ -6,11 +6,9 @@ namespace System.Text.Json.Serialization.Converters
 {
     internal sealed class StringKeyConverter : KeyConverter<string>
     {
-        public override bool ReadKey(ref Utf8JsonReader reader, out string value)
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            value = reader.GetString()!;
-
-            return true;
+            throw new NotImplementedException();
         }
 
         public override string ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
@@ -18,7 +16,7 @@ namespace System.Text.Json.Serialization.Converters
             throw new NotImplementedException();
         }
 
-        protected override void WriteKeyAsT(Utf8JsonWriter writer, string key, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, string key, JsonSerializerOptions options)
             => writer.WritePropertyName(key);
     }
 }

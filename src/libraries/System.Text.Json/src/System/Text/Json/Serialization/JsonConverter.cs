@@ -62,5 +62,6 @@ namespace System.Text.Json.Serialization
 
         internal abstract bool TryReadAsObject(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options, ref ReadStack state, out object? value);
         internal abstract bool TryWriteAsObject(Utf8JsonWriter writer, object? value, JsonSerializerOptions options, ref WriteStack state);
+        internal virtual void WriteKeyAsObject(Utf8JsonWriter writer, object value, JsonSerializerOptions options) { }
     }
 }
