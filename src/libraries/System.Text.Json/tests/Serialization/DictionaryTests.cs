@@ -1611,6 +1611,24 @@ namespace System.Text.Json.Serialization.Tests
         }
 
         [Fact]
+        public static void DictionaryNotSupported()
+        {
+            string json = @"{""MyDictionary"":{""Key"":""Value""}}";
+
+            try
+            {
+                JsonSerializer.Deserialize<ClassWithNotSupportedDictionary>(json);
+                Assert.True(false, "Expected NotSupportedException to be thrown.");
+            }
+            catch (NotSupportedException e)
+            {
+                // The exception should contain className.propertyName and the invalid type.
+                Assert.Contains("ClassWithNotSupportedDictionary.MyDictionary", e.Message);
+                Assert.Contains("Dictionary`2[System.Int32,System.Int32]", e.Message);
+            }
+        }
+
+        [Fact]
         public static void DictionaryNotSupportedButIgnored()
         {
             string json = @"{""MyDictionary"":{""Key"":1}}";
@@ -1827,7 +1845,7 @@ namespace System.Text.Json.Serialization.Tests
 
         public class ClassWithNotSupportedDictionary
         {
-            public Dictionary<int, int> MyDictionary { get; set; }
+            public Dictionary<Uri, int> MyDictionary { get; set; }
         }
 
         public class ClassWithNotSupportedDictionaryButIgnored

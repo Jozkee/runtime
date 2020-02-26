@@ -77,7 +77,7 @@ namespace System.Text.Json
                 if (_keyConverter == null)
                 {
                     Debug.Assert(KeyType != null);
-                    _keyConverter = Options.GetOrAddKeyConverter(KeyType);
+                    _keyConverter = Options.GetOrAddKeyConverter(KeyType, Type);
                 }
 
                 return _keyConverter;

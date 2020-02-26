@@ -36,7 +36,8 @@ namespace System.Text.Json.Serialization.Converters
             JsonSerializerOptions options,
             ref WriteStack state)
         {
-            // Get the key converter at the very beginning since it also validates that Dictionary<TKey,> is supported.
+            // Get the key converter at the very beginning; will throw NSE if there is no converter for TKey.
+            // This is performed at the very beginning to avoid processing unsupported types.
             KeyConverter<TKey> keyConverter = GetKeyConverter(state.Current.JsonClassInfo);
 
             Dictionary<TKey, TValue>.Enumerator enumerator;
@@ -62,7 +63,7 @@ namespace System.Text.Json.Serialization.Converters
                 do
                 {
                     keyConverter.OnTryWrite(writer, enumerator.Current.Key, options, ref state);
-                    valueConverter.Write(writer, enumerator.Current.Value, options);
+                    valueConverter.Write(writer, enumerator.Current.Value!, options);
                 } while (enumerator.MoveNext());
             }
             else

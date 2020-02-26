@@ -285,7 +285,7 @@ namespace System.Text.Json
         }
 
         // Get converter from the cached key converters or add a new Enum converter.
-        internal JsonConverter GetOrAddKeyConverter(Type keyType)
+        internal JsonConverter GetOrAddKeyConverter(Type keyType, Type dictionaryType)
         {
             if (s_keyConverters.TryGetValue(keyType, out JsonConverter? converter))
             {
@@ -303,8 +303,8 @@ namespace System.Text.Json
             }
             else
             {
-                ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(keyType);
-                return null!;
+                ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(dictionaryType);
+                return null;
             }
         }
 

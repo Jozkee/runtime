@@ -76,7 +76,8 @@ namespace System.Text.Json.Serialization.Converters
             ref ReadStack state,
             [MaybeNullWhen(false)] out TCollection value)
         {
-            // Get the key converter at the very beginning since it also validates that Dictionary<TKey,> is supported.
+            // Get the key converter at the very beginning; will throw NSE if there is no converter for TKey.
+            // This is performed at the very beginning to avoid processing unsupported types.
             KeyConverter<TKey> keyConverter = GetKeyConverter(state.Current.JsonClassInfo);
 
             bool shouldReadPreservedReferences = options.ReferenceHandling.ShouldReadPreservedReferences();

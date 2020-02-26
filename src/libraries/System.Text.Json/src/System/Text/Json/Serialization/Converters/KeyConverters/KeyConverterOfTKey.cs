@@ -16,15 +16,13 @@ namespace System.Text.Json.Serialization.Converters
         {
             if (CanBePolymorphic)
             {
-                JsonConverter runtimeConverter = GetPolymorphicConverter(value, options);
+                JsonConverter runtimeConverter = GetPolymorphicConverter(value, options, ref state);
                 // Redirect to the runtime-type key converter.
                 runtimeConverter.WriteKeyAsObject(writer, value, options, ref state);
             }
             // If we need to apply the policy, we are forced to get a string since that is the only type that ConvertName can take as argument.
             else if (options.DictionaryKeyPolicy != null && !state.Current.IgnoreDictionaryKeyPolicy)
             {
-                // TODO: Why is value(!) neccessary?
-                // TODO: if you have a key policy and your key is object, we are going to call ToString on the type, even if is not supported.
                 string keyAsString = value.ToString()!;
                 keyAsString = options.DictionaryKeyPolicy.ConvertName(keyAsString);
 
@@ -43,15 +41,15 @@ namespace System.Text.Json.Serialization.Converters
             return true; // return always true?
         }
 
-        private JsonConverter GetPolymorphicConverter(object value, JsonSerializerOptions options)
+        private JsonConverter GetPolymorphicConverter(object value, JsonSerializerOptions options, ref WriteStack state)
         {
             Type runtimeType = value.GetType();
-            JsonConverter runtimeConverter = options.GetOrAddKeyConverter(runtimeType);
+            JsonConverter runtimeConverter = options.GetOrAddKeyConverter(runtimeType, state.Current.JsonClassInfo.Type);
 
             // We don't support object itself as TKey, only the other supported types when they are boxed.
             if (runtimeConverter is JsonConverter<object>)
             {
-                ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(runtimeType);
+                ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(state.Current.JsonClassInfo.Type);
             }
 
             return runtimeConverter;
