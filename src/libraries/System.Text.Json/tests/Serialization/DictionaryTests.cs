@@ -1622,9 +1622,10 @@ namespace System.Text.Json.Serialization.Tests
             }
             catch (NotSupportedException e)
             {
+                // TODO: Borrow logic from https://github.com/dotnet/runtime/pull/32669 to keep appending the parent type to the NSE message.
                 // The exception should contain className.propertyName and the invalid type.
-                Assert.Contains("ClassWithNotSupportedDictionary.MyDictionary", e.Message);
-                Assert.Contains("Dictionary`2[System.Int32,System.Int32]", e.Message);
+                //Assert.Contains("ClassWithNotSupportedDictionary.MyDictionary", e.Message);
+                Assert.Contains("Dictionary`2[System.Uri,System.Int32]", e.Message);
             }
         }
 
