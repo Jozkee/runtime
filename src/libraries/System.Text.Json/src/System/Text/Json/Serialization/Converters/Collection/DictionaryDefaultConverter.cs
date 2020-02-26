@@ -179,7 +179,7 @@ namespace System.Text.Json.Serialization.Converters
                     }
                     else
                     {
-                        value = default!;
+                        value = default;
                         return false;
                     }
                 }
@@ -214,7 +214,7 @@ namespace System.Text.Json.Serialization.Converters
                         // Read the key name.
                         if (!reader.Read())
                         {
-                            value = default!;
+                            value = default;
                             return false;
                         }
                     }
@@ -253,7 +253,7 @@ namespace System.Text.Json.Serialization.Converters
 
                         if (!SingleValueReadWithReadAhead(elementConverter.ClassType, ref reader, ref state))
                         {
-                            value = default!;
+                            value = default;
                             return false;
                         }
                     }
@@ -266,7 +266,7 @@ namespace System.Text.Json.Serialization.Converters
                         bool success = elementConverter.TryRead(ref reader, typeof(TValue), options, ref state, out TValue element);
                         if (!success)
                         {
-                            value = default!;
+                            value = default;
                             return false;
                         }
 
