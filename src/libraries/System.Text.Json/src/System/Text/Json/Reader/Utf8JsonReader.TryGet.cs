@@ -586,8 +586,6 @@ namespace System.Text.Json
             return TryGetInt32AfterValidation(out value);
         }
 
-        // Gets value without validation.
-        // TODO: call this on KeyConverter.
         internal bool TryGetInt32AfterValidation(out int value)
         {
             ReadOnlySpan<byte> span = HasValueSequence ? ValueSequence.ToArray() : ValueSpan;

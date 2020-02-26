@@ -38,7 +38,7 @@ namespace System.Text.Json.Serialization.Converters
                 Write(writer, value, options);
             }
 
-            return true; // return always true?
+            return true;
         }
 
         private JsonConverter GetPolymorphicConverter(object value, JsonSerializerOptions options, ref WriteStack state)

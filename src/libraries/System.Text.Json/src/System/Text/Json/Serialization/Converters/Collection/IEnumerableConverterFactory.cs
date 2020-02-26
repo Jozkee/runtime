@@ -71,7 +71,7 @@ namespace System.Text.Json.Serialization.Converters
                 converterType = typeof(ListOfTConverter<,>);
                 elementType = actualTypeToConvert.GetGenericArguments()[0];
             }
-            // Dictionary<string,> or deriving from Dictionary<string,>
+            // Dictionary<TKey,> or deriving from Dictionary<TKey,>
             else if ((actualTypeToConvert = typeToConvert.GetCompatibleGenericBaseClass(typeof(Dictionary<,>))) != null)
             {
                 genericArgs = actualTypeToConvert.GetGenericArguments();
@@ -212,16 +212,20 @@ namespace System.Text.Json.Serialization.Converters
             if (converterType != null)
             {
                 Type genericType;
-                if (converterType.GetGenericArguments().Length == 1)
+
+                int numberOfGenericArgs = converterType.GetGenericArguments().Length;
+
+                if (numberOfGenericArgs == 1)
                 {
                     genericType = converterType.MakeGenericType(typeToConvert);
                 }
-                else if (converterType.GetGenericArguments().Length == 2)
+                else if (numberOfGenericArgs == 2)
                 {
                     genericType = converterType.MakeGenericType(typeToConvert, elementType!);
                 }
                 else
                 {
+                    Debug.Assert(numberOfGenericArgs == 3);
                     genericType = converterType.MakeGenericType(typeToConvert, dictionaryKeyType!, elementType!);
                 }
 

@@ -290,12 +290,9 @@ namespace System.Text.Json.Serialization
             bool success;
             JsonDictionaryConverter<T> dictionaryConverter = (JsonDictionaryConverter<T>)this;
 
-            if (ClassType == ClassType.Value) // This is always dictionary. Maybe is hit when the Dictionary<stirng, object have a custom converter?
+            if (ClassType == ClassType.Value)
             {
                 Debug.Assert(!state.IsContinuation);
-                Debug.Assert(false);
-
-                Debug.WriteLine("Im hit!");
 
                 int originalPropertyDepth = writer.CurrentDepth;
 

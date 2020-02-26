@@ -94,7 +94,6 @@ namespace System.Text.Json.Serialization.Converters
                 CreateCollection(ref state);
 
                 JsonConverter<TValue> elementConverter = GetElementConverter(ref state);
-
                 if (elementConverter.CanUseDirectReadOrWrite)
                 {
                     // Process all elements.
@@ -114,7 +113,6 @@ namespace System.Text.Json.Serialization.Converters
                         }
 
                         state.Current.JsonPropertyNameAsString = reader.GetString();
-
                         keyConverter.OnTryRead(ref reader, keyConverter.TypeToConvert, options, ref state, out TKey key);
 
                         // Read the value and add.
@@ -142,7 +140,6 @@ namespace System.Text.Json.Serialization.Converters
                         }
 
                         state.Current.JsonPropertyNameAsString = reader.GetString()!;
-
                         keyConverter.OnTryRead(ref reader, keyConverter.TypeToConvert, options, ref state, out TKey key);
 
                         reader.ReadWithVerify();

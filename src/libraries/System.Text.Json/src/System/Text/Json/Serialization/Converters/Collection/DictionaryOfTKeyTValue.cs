@@ -63,6 +63,7 @@ namespace System.Text.Json.Serialization.Converters
                 do
                 {
                     keyConverter.OnTryWrite(writer, enumerator.Current.Key, options, ref state);
+                    // TODO: https://github.com/dotnet/runtime/issues/32523
                     valueConverter.Write(writer, enumerator.Current.Value!, options);
                 } while (enumerator.MoveNext());
             }
