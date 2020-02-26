@@ -67,7 +67,7 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Contains(@"""Dictionary"":{""key"":2}", serialized);
         }
 
-        [Fact(Skip = "working on supporting this")]
+        [Fact]
         public static void CustomUnsupportedDictionaryConverter()
         {
             string json = @"{""DictionaryWrapper"": {""1"": 1}}";
@@ -76,7 +76,7 @@ namespace System.Text.Json.Serialization.Tests
             {
                 DictionaryWrapper = new UnsupportedDictionaryWrapper()
             };
-            wrapper.DictionaryWrapper[1] = 1;
+            wrapper.DictionaryWrapper[new Uri("https://github.com/dotnet/runtime/pull/32676")] = 1;
 
             // Without converter, we throw.
             Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<UnsupportedDerivedTypesWrapper_Dictionary>(json));
@@ -128,7 +128,7 @@ namespace System.Text.Json.Serialization.Tests
 
     public class DictionaryWrapper : Dictionary<string, int> { }
 
-    public class UnsupportedDictionaryWrapper : Dictionary<int, int> { }
+    public class UnsupportedDictionaryWrapper : Dictionary<Uri, int> { }
 
     public class DerivedTypesWrapper
     {

@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace System.Text.Json.Serialization.Converters
 {
-    internal abstract class KeyConverter<TKey> : JsonConverter<TKey>
+    internal abstract class KeyConverter<TKey> : JsonConverter<TKey> where TKey : notnull
     {
         // This is less API friendly than just call Read and keep the resulting dictionary key boxed in state.Current.
         // Maybe we can call this only for internal converters.
@@ -14,12 +14,18 @@ namespace System.Text.Json.Serialization.Converters
 
         internal override bool OnTryWrite(Utf8JsonWriter writer, TKey value, JsonSerializerOptions options, ref WriteStack state)
         {
+            if (CanBePolymorphic)
+            {
+                JsonConverter runtimeConverter = GetPolymorphicConverter(value, options);
+                // Redirect to the runtime-type key converter.
+                runtimeConverter.WriteKeyAsObject(writer, value, options, ref state);
+            }
             // If we need to apply the policy, we are forced to get a string since that is the only type that ConvertName can take as argument.
-            if (options.DictionaryKeyPolicy != null && !state.Current.IgnoreDictionaryKeyPolicy)
+            else if (options.DictionaryKeyPolicy != null && !state.Current.IgnoreDictionaryKeyPolicy)
             {
                 // TODO: Why is value(!) neccessary?
                 // TODO: if you have a key policy and your key is object, we are going to call ToString on the type, even if is not supported.
-                string keyAsString = value!.ToString()!;
+                string keyAsString = value.ToString()!;
                 keyAsString = options.DictionaryKeyPolicy.ConvertName(keyAsString);
 
                 if (keyAsString == null)
@@ -31,10 +37,24 @@ namespace System.Text.Json.Serialization.Converters
             }
             else
             {
-                Write(writer, value!, options);
+                Write(writer, value, options);
             }
 
             return true; // return always true?
+        }
+
+        private JsonConverter GetPolymorphicConverter(object value, JsonSerializerOptions options)
+        {
+            Type runtimeType = value.GetType();
+            JsonConverter runtimeConverter = options.GetOrAddKeyConverter(runtimeType);
+
+            // We don't support object itself as TKey, only the other supported types when they are boxed.
+            if (runtimeConverter is JsonConverter<object>)
+            {
+                ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(runtimeType);
+            }
+
+            return runtimeConverter;
         }
 
         internal override bool OnTryRead(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options, ref ReadStack state, out TKey value)
@@ -62,7 +82,7 @@ namespace System.Text.Json.Serialization.Converters
             return true;
         }
 
-        internal override void WriteKeyAsObject(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
-            => Write(writer, (TKey)value, options);
+        internal override void WriteKeyAsObject(Utf8JsonWriter writer, object value, JsonSerializerOptions options, ref WriteStack state)
+            => OnTryWrite(writer, (TKey)value, options, ref state);
     }
 }

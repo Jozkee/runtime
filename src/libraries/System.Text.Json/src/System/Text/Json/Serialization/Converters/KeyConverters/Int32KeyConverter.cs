@@ -12,20 +12,25 @@ namespace System.Text.Json.Serialization.Converters
     {
         public override int Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            bool success = reader.TryGetInt32AfterValidation(out int keyValue);
-            Debug.Assert(success);
+            if (!reader.TryGetInt32AfterValidation(out int keyValue))
+            {
+                throw ThrowHelper.GetFormatException(NumericType.Int32);
+            }
 
             return keyValue;
         }
 
         public override int ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
-            bool success = Utf8Parser.TryParse(bytes, out int keyValue, out int _);
-            Debug.Assert(success);
+            if (Utf8Parser.TryParse(bytes, out int keyValue, out int bytesConsumed) && bytesConsumed == bytes.Length)
+            {
+               return keyValue;
+            }
 
-            return keyValue;
+            throw ThrowHelper.GetFormatException(NumericType.Int32);
         }
 
-        public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options) => writer.WritePropertyName(value);
+        public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options)
+            => writer.WritePropertyName(value);
     }
 }

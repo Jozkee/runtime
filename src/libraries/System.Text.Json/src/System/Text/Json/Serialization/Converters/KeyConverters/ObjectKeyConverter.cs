@@ -15,7 +15,7 @@ namespace System.Text.Json.Serialization.Converters
         public override object ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
             // Always wrap property name in quotes since reader.GetSpan() removes it from property names.
-            // The side effect of this is that any boxed number key will be a JsonElement of Type string.
+            // The side effect of this is that any boxed number key will be a JsonElement of JsonValueKind.String.
             byte[] propertyNameArray = new byte[bytes.Length + 2];
             Span<byte> span = propertyNameArray;
             span[0] = (byte)'"';
@@ -30,21 +30,7 @@ namespace System.Text.Json.Serialization.Converters
 
         public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
         {
-            Type runtimeType = value.GetType();
-            JsonConverter? runtimeTypeConverter = options.GetOrAddKeyConverter(runtimeType);
-
-            // We don't support object itself as TKey, only the other supported types when they are boxed.
-            if (runtimeTypeConverter != null
-                && runtimeTypeConverter != this)
-            {
-
-                // Redirect to the runtime-type key converter.
-                runtimeTypeConverter.WriteKeyAsObject(writer, value, options);
-            }
-            else
-            {
-                throw new JsonException("key type is not supported");
-            }
+            throw new InvalidOperationException();
         }
     }
 }

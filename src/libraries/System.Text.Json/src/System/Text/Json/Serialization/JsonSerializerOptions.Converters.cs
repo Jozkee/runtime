@@ -284,10 +284,10 @@ namespace System.Text.Json
             }
         }
 
-        // KeyConverter
-        internal JsonConverter? GetOrAddKeyConverter(Type keyType)
+        // Get converter from the cached key converters or add a new Enum converter.
+        internal JsonConverter GetOrAddKeyConverter(Type keyType)
         {
-            if (s_keyConverters.TryGetValue(keyType!, out JsonConverter? converter))
+            if (s_keyConverters.TryGetValue(keyType, out JsonConverter? converter))
             {
                 return converter;
             }
@@ -296,14 +296,15 @@ namespace System.Text.Json
             else if (keyType.IsEnum)
             {
                 converter = CreateEnumKeyConverter(keyType);
-                // Ignore failure case here in multi-threaded cases since the cached item will be equivalent. ???
+                // Ignore failure case here in multi-threaded cases since the cached item will be equivalent.
                 s_keyConverters.TryAdd(keyType, converter);
 
                 return converter;
             }
             else
             {
-                throw new JsonException("Key is not supported");
+                ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(keyType);
+                return null!;
             }
         }
 

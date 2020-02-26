@@ -9,7 +9,6 @@ using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Reflection;
 using System.Text.Encodings.Web;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace System.Text.Json.Serialization.Tests
@@ -642,10 +641,9 @@ namespace System.Text.Json.Serialization.Tests
             public int Id { get; set; }
         }
 
-        [Fact(Skip = "Working on supporting this.")]
+        [Fact]
         public static void FirstGenericArgNotStringFail()
         {
-            Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<Dictionary<int, int>>(@"{1:1}"));
             Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<ImmutableDictionary<int, int>>(@"{1:1}"));
         }
 
@@ -1609,24 +1607,6 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Equal(2, obj.MyImmutableDictionary.Count);
         }
 
-        [Fact(Skip = "System.ArgumentException : Key is not a valid value for Int32. (Parameter 'value') ---- System.FormatException : Input string was not in a correct format.")]
-        public static void DictionaryNotSupported()
-        {
-            string json = @"{""MyDictionary"":{""Key"":""Value""}}";
-
-            try
-            {
-                JsonSerializer.Deserialize<ClassWithNotSupportedDictionary>(json);
-                Assert.True(false, "Expected NotSupportedException to be thrown.");
-            }
-            catch (NotSupportedException e)
-            {
-                // The exception should contain className.propertyName and the invalid type.
-                Assert.Contains("ClassWithNotSupportedDictionary.MyDictionary", e.Message);
-                Assert.Contains("Dictionary`2[System.Int32,System.Int32]", e.Message);
-            }
-        }
-
         [Fact]
         public static void DictionaryNotSupportedButIgnored()
         {
@@ -2204,200 +2184,6 @@ namespace System.Text.Json.Serialization.Tests
 
             json = JsonSerializer.Serialize(onlyPrivate);
             Assert.Equal("{\"key\":null}", json);
-        }
-
-        private class DictionaryWrapper
-        {
-            public Dictionary<int,string> DictionaryProperty { get; set; }
-        }
-
-        private class MyPoco
-        {
-            public string MyProperty { get; set; }
-        }
-
-        // TKey is non-string.
-        [Fact]
-        public static void DictionaryIntKey()
-        {
-            //var dict0 = JsonSerializer.Deserialize<Dictionary<int, int>>(@"{""123.1"":1123.1}");
-
-            var dict = new Dictionary<string, int>();
-            dict.Add("key", 1);
-            string json0 = JsonSerializer.Serialize(dict);
-
-            dict = JsonSerializer.Deserialize<Dictionary<string, int>>(json0);
-
-            var dictionary = new Dictionary<int, string>();
-            dictionary.Add(1, "value");
-
-            string json = JsonSerializer.Serialize(dictionary);
-            Console.WriteLine(json);
-
-            var obj = JsonSerializer.Deserialize<Dictionary<int, string>>(json);
-
-            DictionaryWrapper wrapper = new DictionaryWrapper
-            {
-                DictionaryProperty = dictionary
-            };
-
-            json = JsonSerializer.Serialize(wrapper);
-            Console.WriteLine(json);
-
-            // on Annonymous type.
-            json = JsonSerializer.Serialize(new { Dictionary = dictionary });
-            Console.WriteLine(json);
-
-            DictionaryWrapper obj2 = JsonSerializer.Deserialize<DictionaryWrapper>(json);
-            Console.WriteLine(json);
-
-            var dictionaryGuid = new Dictionary<Guid, int>();
-            dictionaryGuid.Add(Guid.NewGuid(), 1);
-
-            Console.WriteLine(json);
-            json = JsonSerializer.Serialize(dictionaryGuid);
-            Console.WriteLine(json);
-
-            // TValue is complex object
-            Dictionary<int, MyPoco> dictionaryC = new Dictionary<int, MyPoco>();
-            dictionaryC.Add(1, new MyPoco { MyProperty = "PropertyValue" });
-
-            json = JsonSerializer.Serialize(dictionaryC);
-            Console.WriteLine(json);
-        }
-
-        private class ClassWithOverflow
-        {
-            public Dictionary<string, object> MyDictionary { get; set; }
-
-            [JsonExtensionData]
-            public Dictionary<string, object> MyOverflow { get; set; }
-
-        }
-
-        [Fact]
-        public static void DictionaryIntKeyExtension()
-        {
-            var root = new ClassWithOverflow();
-            root.MyDictionary = new Dictionary<string, object>();
-            root.MyDictionary.Add("key1", 100);
-
-
-            root.MyOverflow = new Dictionary<string, object>();
-            root.MyOverflow.Add("key0", JsonDocument.Parse("{}").RootElement);
-            root.MyOverflow.Add("key2", 200);
-            root.MyOverflow.Add("key3", new MyPoco() { MyProperty = "Test" });
-
-            string json = JsonSerializer.Serialize(root);
-            Console.WriteLine(json);
-        }
-
-        [Fact]
-        public static void DictionaryObjectKey()
-        {
-            var dictionary = new Dictionary<object, object>();
-            dictionary.Add(10, 10);
-
-            string json = JsonSerializer.Serialize(dictionary);
-            Console.WriteLine(json);
-        }
-
-        private enum E
-        {
-            Foo,
-            Bar
-        }
-
-        [Flags]
-        private enum EF
-        {
-            Foo = 1,
-            Bar = 2,
-            Baz = 4
-        }
-
-        [Fact]
-        public static void DictionaryEnumKey()
-        {
-            var dictionary = new Dictionary<E, E>();
-            dictionary.Add(E.Foo, E.Bar);
-
-            string json = JsonSerializer.Serialize(dictionary);
-            Console.WriteLine(json);
-        }
-
-        [Fact]
-        public static void Perf_DictionaryIntKey()
-        {
-            var dictionary = new Dictionary<int, int>();
-            dictionary.Add(1, 1);
-
-            string json;
-            for (int i = 0; i < 100_000; i++)
-            {
-                json = JsonSerializer.Serialize(dictionary);
-
-            }
-        }
-
-        [Fact]
-        public static void Perf_DictionaryIntKeyRead()
-        {
-            var dictionary = new Dictionary<int, int>();
-            dictionary.Add(1, 1);
-
-            string json = JsonSerializer.Serialize(dictionary);
-            for (int i = 0; i < 100_000; i++)
-            {
-                JsonSerializer.Deserialize<Dictionary<int, int>>(json);
-
-            }
-        }
-
-        [Fact]
-        public static void Perf_DictionaryStringKey()
-        {
-            var dictionary = new Dictionary<string, int>();
-            dictionary.Add("key", 1);
-
-            string json;
-            for (int i = 0; i < 100_000; i++)
-            {
-                json = JsonSerializer.Serialize(dictionary);
-
-            }
-        }
-
-        [Fact]
-        public static void QuickTest()
-        {
-            Dictionary<object, int> root = new Dictionary<object, int>();
-            root.Add("Key1", 1);
-
-            string json = JsonSerializer.Serialize(root);
-
-            var copy = JsonSerializer.Deserialize<Dictionary<object, int>>(json);
-            Validate(copy);
-        }
-
-        private static  void Validate(Dictionary<object, int> dictionary)
-        {
-            JsonElement key = JsonDocument.Parse("1").RootElement;
-
-            bool success = dictionary.TryGetValue(key, out int value);
-            //Assert.Equal(Value, value);
-            Console.WriteLine(value);
-        }
-
-        [Fact]
-        public static void QuickTest2()
-        {
-            var root = new Dictionary<int, object>();
-            root.Add(1, 1);
-
-            string json = JsonSerializer.Serialize(root);
-
-            var copy = JsonSerializer.Deserialize<Dictionary<int, object>>(json);
         }
     }
 }

@@ -12,18 +12,22 @@ namespace System.Text.Json.Serialization.Converters
     {
         public override Guid Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            bool success = reader.TryGetGuidAfterValidation(out Guid value);
-            Debug.Assert(success);
+            if (!reader.TryGetGuidAfterValidation(out Guid keyValue))
+            {
+                throw ThrowHelper.GetFormatException(DataType.Guid);
+            }
 
-            return value;
+            return keyValue;
         }
 
         public override Guid ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
-            bool success = Utf8Parser.TryParse(bytes, out Guid keyValue, out int _);
-            Debug.Assert(success);
+            if (Utf8Parser.TryParse(bytes, out Guid keyValue, out int bytesConsumed) && bytesConsumed == bytes.Length)
+            {
+                return keyValue;
+            }
 
-            return keyValue;
+            throw ThrowHelper.GetFormatException(DataType.Guid);
         }
 
         public override void Write(Utf8JsonWriter writer, Guid key, JsonSerializerOptions options)

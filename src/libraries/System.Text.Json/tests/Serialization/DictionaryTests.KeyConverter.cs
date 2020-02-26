@@ -2,12 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json.Tests;
+using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace System.Text.Json.Serialization.Tests
@@ -17,12 +15,21 @@ namespace System.Text.Json.Serialization.Tests
         protected abstract TKey Key { get; }
         protected abstract TValue Value { get; }
         protected virtual string _expectedJson => $"{{\"{Key}\":{Value}}}";
+        protected virtual string _expectedJsonHashedProperties => $"{{\"{HashingNamingPolicy.HashName(Key.ToString())}\":{Value}}}";
+
+        private static JsonSerializerOptions _policyOptions = new JsonSerializerOptions { DictionaryKeyPolicy = new HashingNamingPolicy() };
 
         protected virtual void Validate(Dictionary<TKey, TValue> dictionary)
         {
             bool success = dictionary.TryGetValue(Key, out TValue value);
             Assert.True(success);
+            Assert.Equal(Value, value);
+        }
 
+        protected virtual void ValidateHashed(Dictionary<int, TValue> dictionary)
+        {
+            bool success = dictionary.TryGetValue(Key.ToString().GetHashCode(), out TValue value);
+            Assert.True(success);
             Assert.Equal(Value, value);
         }
 
@@ -46,34 +53,54 @@ namespace System.Text.Json.Serialization.Tests
             Validate(dictionaryCopy);
         }
 
-        // Test with read ahead
         [Fact]
-        public async Task TestNonStringKeyDictionaryReadAhead()
+        public async Task TestNonStringKeyDictionaryAsync()
         {
-            Dictionary<TKey, TValue> dictionary = new Dictionary<TKey, TValue>();
-            dictionary.Add(Key, Value);
+            Dictionary<TKey, TValue> dictionary = BuildDictionary();
 
-            string json = JsonSerializer.Serialize(dictionary);
-            Assert.Equal(json, _expectedJson);
+            MemoryStream serializeStream = new MemoryStream();
+            await JsonSerializer.SerializeAsync(serializeStream, dictionary);
+            string json = Encoding.UTF8.GetString(serializeStream.ToArray());
+            Assert.Equal(_expectedJson, json);
 
             byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-            Stream stream = new MemoryStream(jsonBytes);
-
-            Dictionary<TKey, TValue> dictionaryCopy = await JsonSerializer.DeserializeAsync<Dictionary<TKey, TValue>>(stream);
+            Stream deserializeStream = new MemoryStream(jsonBytes);
+            Dictionary<TKey, TValue> dictionaryCopy = await JsonSerializer.DeserializeAsync<Dictionary<TKey, TValue>>(deserializeStream);
             Validate(dictionaryCopy);
         }
 
-        // Test with DictionaryKeyPolicy
+        [Fact]
+        public void TestNonStringKeyDictinaryUsingPolicy()
+        {
+            Dictionary<TKey, TValue> dictionary = BuildDictionary();
 
-        // Test extension data?? I haven't tested that.
+            string json = JsonSerializer.Serialize(dictionary, _policyOptions);
+            Assert.Equal(_expectedJsonHashedProperties, json);
+
+            Dictionary<int, TValue> dictionaryCopy = JsonSerializer.Deserialize<Dictionary<int, TValue>>(json);
+            ValidateHashed(dictionaryCopy);
+        }
+
+        [Fact]
+        public async Task TestNonStringKeyDictionaryAsyncUsingPolicy()
+        {
+            Dictionary<TKey, TValue> dictionary = BuildDictionary();
+
+            MemoryStream serializeStream = new MemoryStream();
+            await JsonSerializer.SerializeAsync(serializeStream, dictionary, _policyOptions);
+            string json = Encoding.UTF8.GetString(serializeStream.ToArray());
+            Assert.Equal(_expectedJsonHashedProperties, json);
+
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+            Stream deserializeStream = new MemoryStream(jsonBytes);
+            Dictionary<int, TValue> dictionaryCopy = await JsonSerializer.DeserializeAsync<Dictionary<int, TValue>>(deserializeStream);
+            ValidateHashed(dictionaryCopy);
+        }
     }
-
-    // Create another abstract to test unsupported types.
 
     public class DictionaryIntKey : DictionaryKeyConverterTests<int, int>
     {
         protected override int Key => 1;
-
         protected override int Value => 1;
     }
 
@@ -81,7 +108,6 @@ namespace System.Text.Json.Serialization.Tests
     {
         // Use singleton pattern here so the Guid key does not change everytime this is called.
         protected override Guid Key { get; } = Guid.NewGuid();
-
         protected override int Value => 1;
     }
 
@@ -94,7 +120,6 @@ namespace System.Text.Json.Serialization.Tests
     public class DictionaryEnumKey : DictionaryKeyConverterTests<MyEnum, int>
     {
         protected override MyEnum Key => MyEnum.Foo;
-
         protected override int Value => 1;
     }
 
@@ -109,23 +134,24 @@ namespace System.Text.Json.Serialization.Tests
     public class DictionaryEnumFlagsKey : DictionaryKeyConverterTests<MyEnumFlags, int>
     {
         protected override MyEnumFlags Key => MyEnumFlags.Foo | MyEnumFlags.Bar;
-
         protected override int Value => 1;
     }
 
     public class DictionaryStringKey : DictionaryKeyConverterTests<string, int>
     {
-        protected override string Key => "key1";
-
+        protected override string Key => "KeyString";
         protected override int Value => 1;
     }
 
-    public class DictionaryIntObjectKey : DictionaryKeyConverterTests<object, int>
+    public class DictionaryObjectKey : DictionaryKeyConverterTests<object, int>
     {
         protected override object Key => 1;
         protected override int Value => 1;
-        protected override string _expectedJson => base._expectedJson;
+        protected override string _expectedJson => BuildExpectedJson();
+        protected override string _expectedJsonHashedProperties => BuildExpectedJsonHashedProperties();
         private Dictionary<object, int> _dictionary;
+        private Dictionary<string, int> _dictionaryOfStringKeys;
+        private Dictionary<int, int> _dictionaryOfHashedKeys;
 
         protected override Dictionary<object, int> BuildDictionary()
         {
@@ -138,80 +164,166 @@ namespace System.Text.Json.Serialization.Tests
             dictionary.Add(MyEnumFlags.Foo | MyEnumFlags.Bar, 5);
 
             _dictionary = dictionary;
+            _dictionaryOfStringKeys = dictionary.ToDictionary(kvp => kvp.Key.ToString(), kvp => kvp.Value);
+            _dictionaryOfHashedKeys = dictionary.ToDictionary(kvp => kvp.Key.ToString().GetHashCode(), kvp => kvp.Value);
 
             return dictionary;
         }
 
-        private string GetExpectedJson()
+        private string BuildExpectedJson()
         {
-            return string.Empty;
+            using (var stream = new MemoryStream())
+            {
+                using (var writer = new Utf8JsonWriter(stream))
+                {
+                    writer.WriteStartObject();
+                    foreach (KeyValuePair<object, int> kvp in _dictionary)
+                    {
+                        writer.WriteNumber(kvp.Key.ToString(), kvp.Value);
+                    }
+                    writer.WriteEndObject();
+                }
+
+                return Encoding.UTF8.GetString(stream.ToArray());
+            }
+        }
+
+        private string BuildExpectedJsonHashedProperties()
+        {
+            using (var stream = new MemoryStream())
+            {
+                using (var writer = new Utf8JsonWriter(stream))
+                {
+                    writer.WriteStartObject();
+                    foreach (KeyValuePair<object, int> kvp in _dictionary)
+                    {
+                        string hashedKey = HashingNamingPolicy.HashName(kvp.Key.ToString());
+                        writer.WriteNumber(hashedKey, kvp.Value);
+                    }
+                    writer.WriteEndObject();
+                }
+
+                return Encoding.UTF8.GetString(stream.ToArray());
+            }
         }
 
         protected override void Validate(Dictionary<object, int> dictionary)
         {
-            Assert.True(dictionary.Count == 1);
+            foreach (KeyValuePair<object, int> kvp in dictionary)
+            {
+                if (kvp.Key is JsonElement keyJsonElement)
+                {
+                    Assert.Equal(JsonValueKind.String, keyJsonElement.ValueKind);
 
-            Dictionary<object, int>.Enumerator enumerator = dictionary.GetEnumerator();
-            enumerator.MoveNext();
+                    string keyString = keyJsonElement.GetString();
+                    Assert.Equal(_dictionaryOfStringKeys[keyString], kvp.Value);
+                }
+                else
+                {
+                    Assert.True(false, "Polymorphic key is not JsonElement");
+                }
+            }
+        }
 
-            Assert.Equal(typeof(JsonElement), enumerator.Current.Key.GetType());
-            JsonElement key = (JsonElement)enumerator.Current.Key;
-
-            Assert.Equal(JsonValueKind.String, key.ValueKind);
-            Assert.Equal(Key.ToString(), key.GetString());
-
-            int value = enumerator.Current.Value;
-            Assert.Equal(Value, value);
+        protected override void ValidateHashed(Dictionary<int, int> dictionary)
+        {
+            foreach (KeyValuePair<int, int> kvp in dictionary)
+            {
+                bool success = _dictionaryOfHashedKeys.TryGetValue(kvp.Key, out int value);
+                Assert.True(success);
+                Assert.Equal(value, kvp.Value);
+            }
         }
     }
 
-    // TKey is string at runtime.
-    public class DictionaryStringObjectKey : DictionaryKeyConverterTests<object, int>
+    public class HashingNamingPolicy : JsonNamingPolicy
     {
-        protected override object Key => "Key1";
-
-        protected override int Value => 1;
-
-        protected override void Validate(Dictionary<object, int> dictionary)
+        public override string ConvertName(string name)
         {
-            Assert.True(dictionary.Count == 1);
+            return HashName(name);
+        }
 
-            Dictionary<object, int>.Enumerator enumerator = dictionary.GetEnumerator();
-            enumerator.MoveNext();
-
-            Assert.Equal(typeof(JsonElement), enumerator.Current.Key.GetType());
-            JsonElement key = (JsonElement)enumerator.Current.Key;
-
-            Assert.Equal(JsonValueKind.String, key.ValueKind);
-            Assert.Equal(Key, key.GetString());
-
-            int value = enumerator.Current.Value;
-            Assert.Equal(Value, value);
+        public static string HashName(string name)
+        {
+            return name.GetHashCode().ToString();
         }
     }
 
-    // TKey is enum at runtime.
-    public class DictionaryEnumObjectKey : DictionaryKeyConverterTests<object, int>
+    public abstract class DictionaryUnsupportedKeyTests<TKey, TValue>
     {
-        protected override object Key => MyEnum.Foo;
+        private Dictionary<TKey, TValue> _dictionary => BuildDictionary();
+        private static JsonSerializerOptions _policyOptions = new JsonSerializerOptions { DictionaryKeyPolicy = new HashingNamingPolicy() };
 
-        protected override int Value => 1;
-
-        protected override void Validate(Dictionary<object, int> dictionary)
+        private Dictionary<TKey, TValue> BuildDictionary()
         {
-            Assert.True(dictionary.Count == 1);
+            return new Dictionary<TKey, TValue>();
+        }
 
-            Dictionary<object, int>.Enumerator enumerator = dictionary.GetEnumerator();
-            enumerator.MoveNext();
+        [Fact]
+        public void ThrowUnsupportedSerialize() => Assert.Throws<NotSupportedException>(() => JsonSerializer.Serialize(_dictionary));
+        [Fact]
+        public void ThrowUnsupportedSerializeUsingPolicy() => Assert.Throws<NotSupportedException>(() => JsonSerializer.Serialize(_dictionary, _policyOptions));
+        [Fact]
+        public async Task ThrowUnsupportedSerializeAsync() => await Assert.ThrowsAsync<NotSupportedException>(() => JsonSerializer.SerializeAsync(new MemoryStream(), _dictionary));
+        [Fact]
+        public async Task ThrowUnsupportedSerializeAsyncUsingPolicyAsync() => await Assert.ThrowsAsync<NotSupportedException>(() => JsonSerializer.SerializeAsync(new MemoryStream(), _dictionary, _policyOptions));
+        [Fact]
+        public void ThrowUnsupportedDeserialize() => Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<Dictionary<TKey, TValue>>("{}"));
+        [Fact]
+        public async Task ThrowUnsupportedDeserializeAsync() => await Assert.ThrowsAsync<NotSupportedException>(async () => await JsonSerializer.DeserializeAsync<Dictionary<TKey, TValue>>(new MemoryStream(Encoding.UTF8.GetBytes("{}"))));
+    }
 
-            Assert.Equal(typeof(JsonElement), enumerator.Current.Key.GetType());
-            JsonElement key = (JsonElement)enumerator.Current.Key;
+    public class DictionaryUriKeyUnsupported : DictionaryUnsupportedKeyTests<Uri, int>{ }
+    public class MyClass { }
+    public class DictionaryMyClassKeyUnsupported : DictionaryUnsupportedKeyTests<MyClass, int>{ }
+    public struct MyStruct { }
+    public class DictionaryMyStructKeyUnsupported : DictionaryUnsupportedKeyTests<MyStruct, int> { }
 
-            Assert.Equal(JsonValueKind.String, key.ValueKind);
-            Assert.Equal(Key.ToString(), key.GetString());
+    public class DictionaryNonStringKeyTests
+    {
+        private static JsonSerializerOptions _policyOptions = new JsonSerializerOptions { DictionaryKeyPolicy = new HashingNamingPolicy() };
 
-            int value = enumerator.Current.Value;
-            Assert.Equal(Value, value);
+        [Fact]
+        public void ThrowOnUnsupportedRuntimeType()
+        {
+            Dictionary<object, int> dictionary = new Dictionary<object, int>();
+            dictionary.Add(new Uri("http://github.com/Jozkee"), 1);
+
+            Assert.Throws<NotSupportedException>(() => JsonSerializer.Serialize(dictionary));
+
+            Assert.Throws<NotSupportedException>(() => JsonSerializer.Serialize(dictionary, _policyOptions));
+        }
+
+        [Fact]
+        public async Task ThrowOnUnsupportedRuntimeTypeAsync()
+        {
+            Dictionary<object, int> dictionary = new Dictionary<object, int>();
+            dictionary.Add(new Uri("http://github.com/Jozkee"), 1);
+
+            await Assert.ThrowsAsync<NotSupportedException>(() => JsonSerializer.SerializeAsync(new MemoryStream(), dictionary));
+
+            await Assert.ThrowsAsync<NotSupportedException>(() => JsonSerializer.SerializeAsync(new MemoryStream(), dictionary, _policyOptions));
+        }
+
+        [Theory] // Extend this test when support for more types is added.
+        [InlineData(@"{""1.1"":1}", typeof(Dictionary<int, int>))]
+        [InlineData(@"{""{00000000-0000-0000-0000-000000000000}"":1}", typeof(Dictionary<Guid, int>))]
+        public void ThrowOnInvalidFormat(string json, Type typeToConvert)
+        {
+            JsonException ex = Assert.Throws<JsonException>(() => JsonSerializer.Deserialize(json, typeToConvert));
+            Assert.Contains(typeToConvert.ToString(), ex.Message);
+        }
+         
+        [Theory] // Extend this test when support for more types is added.
+        [InlineData(@"{""1.1"":1}", typeof(Dictionary<int, int>))]
+        [InlineData(@"{""{00000000-0000-0000-0000-000000000000}"":1}", typeof(Dictionary<Guid, int>))]
+        public async Task ThrowOnInvalidFormatAsync(string json, Type typeToConvert)
+        {
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+            Stream stream = new MemoryStream(jsonBytes);
+
+            JsonException ex = await Assert.ThrowsAsync<JsonException>(async () => await JsonSerializer.DeserializeAsync(stream, typeToConvert));
+            Assert.Contains(typeToConvert.ToString(), ex.Message);
         }
     }
 }

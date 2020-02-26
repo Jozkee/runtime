@@ -36,7 +36,11 @@ namespace System.Text.Json.Serialization.Converters
             JsonSerializerOptions options,
             ref WriteStack state)
         {
+            // Get the key converter at the very beginning since it also validates that Dictionary<TKey,> is supported.
+            KeyConverter<TKey> keyConverter = GetKeyConverter(state.Current.JsonClassInfo);
+
             Dictionary<TKey, TValue>.Enumerator enumerator;
+
             if (state.Current.CollectionEnumerator == null)
             {
                 enumerator = value.GetEnumerator();
@@ -51,7 +55,6 @@ namespace System.Text.Json.Serialization.Converters
             }
 
             JsonConverter<TValue> valueConverter = GetValueConverter(ref state);
-            KeyConverter<TKey> keyConverter = GetKeyConverter(ref state);
 
             if (!state.SupportContinuation && valueConverter.CanUseDirectReadOrWrite)
             {

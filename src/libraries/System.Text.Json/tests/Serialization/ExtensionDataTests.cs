@@ -649,15 +649,14 @@ namespace System.Text.Json.Serialization.Tests
             public Dictionary<DummyObj, string> MyOverflow { get; set; }
         }
 
-        [Fact(Skip = "obj2 collides with new TKey support, consider expect InvaliOperation as in obj1")]
+        [Fact]
         public static void ExtensionProperty_InvalidDictionary()
         {
             ClassWithInvalidExtensionPropertyStringString obj1 = new ClassWithInvalidExtensionPropertyStringString();
             Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(obj1));
 
-            // This fails with NotSupportedException since all Dictionaries currently need to have a string TKey.
             ClassWithInvalidExtensionPropertyObjectString obj2 = new ClassWithInvalidExtensionPropertyObjectString();
-            Assert.Throws<NotSupportedException>(() => JsonSerializer.Serialize(obj2));
+            Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(obj2));
         }
 
         private class ClassWithExtensionPropertyAlreadyInstantiated

@@ -14,7 +14,7 @@ namespace System.Text.Json.Serialization.Converters
     /// Default base class implementation of <cref>JsonDictionaryConverter{TCollection}</cref> .
     /// </summary>
     internal abstract class DictionaryDefaultConverter<TCollection, TKey, TValue>
-        : JsonDictionaryConverter<TCollection>
+        : JsonDictionaryConverter<TCollection> where TKey : notnull
     {
         /// <summary>
         /// When overridden, adds the value to the collection.
@@ -67,8 +67,7 @@ namespace System.Text.Json.Serialization.Converters
             return converter;
         }
 
-        protected static KeyConverter<TKey> GetKeyConverter(ref WriteStack state) => (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
-        protected static KeyConverter<TKey> GetKeyConverter(ref ReadStack state) => (KeyConverter<TKey>)state.Current.JsonClassInfo.KeyConverter;
+        protected static KeyConverter<TKey> GetKeyConverter(JsonClassInfo classInfo) => (KeyConverter<TKey>)classInfo.KeyConverter;
 
         internal sealed override bool OnTryRead(
             ref Utf8JsonReader reader,
@@ -77,6 +76,9 @@ namespace System.Text.Json.Serialization.Converters
             ref ReadStack state,
             [MaybeNullWhen(false)] out TCollection value)
         {
+            // Get the key converter at the very beginning since it also validates that Dictionary<TKey,> is supported.
+            KeyConverter<TKey> keyConverter = GetKeyConverter(state.Current.JsonClassInfo);
+
             bool shouldReadPreservedReferences = options.ReferenceHandling.ShouldReadPreservedReferences();
 
             if (!state.SupportContinuation && !shouldReadPreservedReferences)
@@ -91,7 +93,6 @@ namespace System.Text.Json.Serialization.Converters
                 CreateCollection(ref state);
 
                 JsonConverter<TValue> elementConverter = GetElementConverter(ref state);
-                KeyConverter<TKey> keyConverter = GetKeyConverter(ref state);
 
                 if (elementConverter.CanUseDirectReadOrWrite)
                 {
@@ -259,7 +260,6 @@ namespace System.Text.Json.Serialization.Converters
 
                     if (state.Current.PropertyState < StackFramePropertyState.TryRead)
                     {
-                        KeyConverter<TKey> keyConverter = GetKeyConverter(ref state);
                         keyConverter.OnTryRead(ref reader, keyConverter.TypeToConvert, options, ref state, out TKey key);
 
                         // Get the value from the converter and add it.

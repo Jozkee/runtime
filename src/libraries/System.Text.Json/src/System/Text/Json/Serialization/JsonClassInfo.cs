@@ -80,8 +80,7 @@ namespace System.Text.Json
                     _keyConverter = Options.GetOrAddKeyConverter(KeyType);
                 }
 
-                // TODO fix the bang.
-                return _keyConverter!;
+                return _keyConverter;
             }
         }
 
