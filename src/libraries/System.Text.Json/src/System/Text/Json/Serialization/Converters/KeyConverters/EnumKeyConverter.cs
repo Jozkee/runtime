@@ -23,12 +23,17 @@ namespace System.Text.Json.Serialization.Converters
 
         public override TEnum ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
-            Span<char> utf16Name = stackalloc char[bytes.Length];
-            Utf8.ToUtf16(bytes, utf16Name, out int bytesRead, out int CharsWritten);
+            int idx = bytes.IndexOf(JsonConstants.BackSlash);
+            // if no escaping, just parse the bytes to string using TranscodeHelper.
+            string unescapedKeyName = idx > -1 ? JsonReaderHelper.GetUnescapedString(bytes, idx) : JsonReaderHelper.TranscodeHelper(bytes);
 
-            Enum.TryParse(utf16Name.ToString(), out TEnum result);
+            if (!Enum.TryParse(unescapedKeyName, out TEnum value)
+                    && !Enum.TryParse(unescapedKeyName, ignoreCase: true, out value))
+            {
+                ThrowHelper.ThrowJsonException();
+            }
 
-            return result;
+            return value;
         }
 
         public override void Write(Utf8JsonWriter writer, TEnum value, JsonSerializerOptions options)

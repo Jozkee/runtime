@@ -14,12 +14,15 @@ namespace System.Text.Json.Serialization.Converters
 
         public override object ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
+            int idx = bytes.IndexOf(JsonConstants.BackSlash);
+            ReadOnlySpan<byte> unescapedBytes = idx > -1 ? JsonReaderHelper.GetUnescapedSpan(bytes, idx) : bytes;
+
             // Always wrap property name in quotes since reader.GetSpan() removes it from property names.
-            // The side effect of this is that any boxed number key will be a JsonElement of JsonValueKind.String.
-            byte[] propertyNameArray = new byte[bytes.Length + 2];
+            // The side effect of this is that any boxed number will be a JsonElement of JsonValueKind.String.
+            byte[] propertyNameArray = new byte[unescapedBytes.Length + 2];
             Span<byte> span = propertyNameArray;
             span[0] = (byte)'"';
-            bytes.CopyTo(span.Slice(1));
+            unescapedBytes.CopyTo(span.Slice(1));
             span[span.Length - 1] = (byte)'"';
 
             using (JsonDocument document = JsonDocument.Parse(propertyNameArray))

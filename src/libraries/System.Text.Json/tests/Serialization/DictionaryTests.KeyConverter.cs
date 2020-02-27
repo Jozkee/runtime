@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -324,6 +325,51 @@ namespace System.Text.Json.Serialization.Tests
 
             JsonException ex = await Assert.ThrowsAsync<JsonException>(async () => await JsonSerializer.DeserializeAsync(stream, typeToConvert));
             Assert.Contains(typeToConvert.ToString(), ex.Message);
+        }
+
+        [Theory]
+        [InlineData(@"{""\u0039"":1}", typeof(Dictionary<int, int>), 9)]
+        [InlineData(@"{""\u0041"":1}", typeof(Dictionary<string, int>), "A")]
+        [InlineData(@"{""\u0066\u006f\u006f"":1}", typeof(Dictionary<MyEnum, int>), MyEnum.Foo)]
+        public static async Task TestUnescapedKeysAsync(string json, Type typeToConvert, object keyAsType)
+        {
+            byte[] utf8Json = Encoding.UTF8.GetBytes(json);
+            MemoryStream stream = new MemoryStream(utf8Json);
+
+            object result = await JsonSerializer.DeserializeAsync(stream, typeToConvert);
+
+            IDictionary dictionary = (IDictionary)result;
+            Assert.True(dictionary.Contains(keyAsType));
+        }
+
+        [Fact]
+        public static async Task TestUnescapedKeysAsync()
+        {
+            // Test Guid which cannot be passed as parameter on above method.
+            byte[] utf8Json = Encoding.UTF8.GetBytes(@"{""\u0036bb67e4e-9780-4895-851b-75f72ac34c5a"":1}");
+            MemoryStream stream = new MemoryStream(utf8Json);
+
+            Dictionary<Guid, int> result = await JsonSerializer.DeserializeAsync<Dictionary<Guid, int>>(stream);
+
+            Guid myGuid = new Guid("6bb67e4e-9780-4895-851b-75f72ac34c5a");
+            Assert.Equal(1, result[myGuid]);
+
+            // Test object.
+            utf8Json = Encoding.UTF8.GetBytes(@"{""\u0038"":1}");
+            stream = new MemoryStream(utf8Json);
+
+            Dictionary<object, int> result2 = await JsonSerializer.DeserializeAsync<Dictionary<object, int>>(stream);
+
+            Dictionary<object, int>.Enumerator enumerator = result2.GetEnumerator();
+            enumerator.MoveNext();
+
+            Assert.Equal(1, enumerator.Current.Value);
+
+            JsonElement dictionaryKey = (JsonElement)enumerator.Current.Key;
+            JsonElement myElement = JsonDocument.Parse("\"8\"").RootElement;
+
+            Assert.Equal(dictionaryKey.ValueKind, myElement.ValueKind);
+            Assert.Equal(dictionaryKey.GetString(), myElement.GetString());
         }
     }
 }

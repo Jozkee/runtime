@@ -22,7 +22,10 @@ namespace System.Text.Json.Serialization.Converters
 
         public override int ReadKeyFromBytes(ReadOnlySpan<byte> bytes)
         {
-            if (Utf8Parser.TryParse(bytes, out int keyValue, out int bytesConsumed) && bytesConsumed == bytes.Length)
+            int idx = bytes.IndexOf(JsonConstants.BackSlash);
+            ReadOnlySpan<byte> unescapedBytes = idx > -1 ? JsonReaderHelper.GetUnescapedSpan(bytes, idx) : bytes;
+
+            if (Utf8Parser.TryParse(unescapedBytes, out int keyValue, out int bytesConsumed) && bytesConsumed == unescapedBytes.Length)
             {
                return keyValue;
             }
