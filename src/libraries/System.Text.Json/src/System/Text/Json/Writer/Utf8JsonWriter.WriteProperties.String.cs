@@ -236,28 +236,6 @@ namespace System.Text.Json
             _tokenType = JsonTokenType.PropertyName;
         }
 
-        // TODO: move to WriteProperties.SignedNumber.cs?
-        internal void WritePropertyName(int value)
-        {
-            Span<byte> utf8PropertyName = stackalloc byte[JsonConstants.MaximumFormatInt64Length];
-
-            bool result = Utf8Formatter.TryFormat(value, utf8PropertyName, out int bytesWritten);
-            Debug.Assert(result);
-
-            WritePropertyName(utf8PropertyName.Slice(0, bytesWritten));
-        }
-
-        internal void WritePropertyName(Guid value)
-        {
-            Span<byte> utf8PropertyName = stackalloc byte[JsonConstants.MaximumFormatGuidLength];
-
-            bool result = Utf8Formatter.TryFormat(value, utf8PropertyName, out int bytesWritten);
-            Debug.Assert(result);
-
-            // Is this will always be 36?
-            WritePropertyName(utf8PropertyName);
-        }
-
         private void WriteStringEscapeProperty(ReadOnlySpan<byte> utf8PropertyName, int firstEscapeIndexProp)
         {
             Debug.Assert(int.MaxValue / JsonConstants.MaxExpansionFactorWhileEscaping >= utf8PropertyName.Length);
