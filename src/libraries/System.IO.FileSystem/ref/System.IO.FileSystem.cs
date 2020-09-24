@@ -239,6 +239,7 @@ namespace System.IO
     {
         Simple = 0,
         Win32 = 1,
+        Globbing = 2,
     }
     public enum SearchOption
     {

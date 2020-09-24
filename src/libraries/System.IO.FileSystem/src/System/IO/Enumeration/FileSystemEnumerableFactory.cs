@@ -97,6 +97,7 @@ namespace System.IO.Enumeration
                     }
                     break;
                 case MatchType.Simple:
+                case MatchType.Globbing:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(matchType));

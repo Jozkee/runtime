@@ -18,6 +18,8 @@ namespace System.IO
         /// Match using Win32 DOS style matching semantics. '*', '?', '&lt;', '&gt;', and '"'
         /// are all considered wildcards.
         /// </summary>
-        Win32
+        Win32,
+
+        Globbing,
     }
 }

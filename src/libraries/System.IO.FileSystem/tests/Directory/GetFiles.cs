@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using System.Linq;
 using Xunit;
 
@@ -192,5 +193,30 @@ namespace System.IO.Tests
             string[] files = GetEntries(root + (IsDirectoryInfo ? trailing : ""), "*", SearchOption.AllDirectories);
             FSAssert.EqualWhenOrdered(new string[] { rootFile, nestedFile }, files);
         }
+    }
+
+    public class Directory_GetFiles_String_String_EnumerationOptions : FileSystemTest
+    {
+        private static EnumerationOptions globbingOptions = new EnumerationOptions { MatchType = MatchType.Globbing };
+
+        // Globbing
+        [Fact]
+        public void GlobbingMatchType()
+        {
+            Debugger.Launch();
+
+            DirectoryInfo dir = new DirectoryInfo(TestDirectory);
+            DirectoryInfo subDir = dir.CreateSubdirectory(GetTestFileName());
+
+            using var fileOnDir = File.Create(Path.Combine(dir.FullName, GetTestFileName()));
+            using var fileOnSubDir = File.Create(Path.Combine(subDir.FullName, GetTestFileName()));
+
+
+            var files = Directory.GetFiles(TestDirectory, "*", globbingOptions);
+
+            Assert.Equal(1, files.Length);
+        }
+
+        // Regex
     }
 }
