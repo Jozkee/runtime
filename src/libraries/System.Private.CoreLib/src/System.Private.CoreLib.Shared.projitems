@@ -1409,6 +1409,9 @@
     <Compile Include="$(CommonPath)Interop\Windows\Kernel32\Interop.DeleteVolumeMountPoint.cs">
       <Link>Common\Interop\Windows\Kernel32\Interop.DeleteVolumeMountPoint.cs</Link>
     </Compile>
+    <Compile Include="$(CommonPath)Interop\Windows\Kernel32\Interop.DeviceIoControl.cs">
+      <Link>Common\Interop\Windows\Kernel32\Interop.DeviceIoControl.cs</Link>
+    </Compile>
     <Compile Include="$(CommonPath)Interop\Windows\Kernel32\Interop.CreateFile_IntPtr.cs">
       <Link>Common\Interop\Windows\Kernel32\Interop.CreateFile_IntPtr.cs</Link>
     </Compile>
