@@ -2,15 +2,18 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text;
+using System.Threading;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.Configuration.Test;
 using Xunit;
 
 namespace Microsoft.Extensions.Configuration
 {
-    public class JsonConfigurationTest
+    public class JsonConfigurationTest : FileCleanupTestBase
     {
         private JsonConfigurationProvider LoadProvider(string json)
         {
@@ -222,6 +225,68 @@ namespace Microsoft.Extensions.Configuration
         {
             var exception = Assert.Throws<FormatException>(() => LoadProvider(@""));
             Assert.Contains("Could not parse the JSON file.", exception.Message);
+        }
+
+        [Theory]
+        //[InlineData(false)]
+        [InlineData(true)]
+        public void JsonConfiguration_ReloadsOnChange(bool useSymbolicLink)
+        {
+            Debugger.Launch();
+            string rootPath = GetTestFilePath();
+            string subFolderPath = Directory.CreateDirectory(Path.Combine(rootPath, "subfolder")).FullName;
+
+            string configPath = Path.Combine(subFolderPath, "config.json");
+            File.WriteAllBytes(configPath, Encoding.UTF8.GetBytes(@"{""config"":{""message"":""v1.1""}}"));
+
+            if (useSymbolicLink)
+            {
+                string linkPath = Path.Combine(rootPath, "config.json");
+                bool success = CreateSymLink(configPath, linkPath, isDirectory: false);
+                Assert.True(success);
+                configPath = linkPath;
+            }
+
+            var config = new ConfigurationBuilder().AddJsonFile(configPath, optional: false, reloadOnChange: true).Build();
+            Assert.Equal("v1.1", config.GetSection("config:message").Value);
+
+            // Verify reloadOnChange.
+            File.WriteAllBytes(configPath, Encoding.UTF8.GetBytes(@"{""config"":{""message"":""v1.2""}}"));
+            // It takes 250ms by default to reload changes.
+            Thread.Sleep(500);
+            Assert.Equal("v1.2", config.GetSection("config:message").Value);
+        }
+
+        private static bool CreateSymLink(string targetPath, string linkPath, bool isDirectory)
+        {
+            if (OperatingSystem.IsIOS() || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst()) // OSes that don't support Process.Start()
+            {
+                return false;
+            }
+
+            Process symLinkProcess = new Process();
+            if (OperatingSystem.IsWindows())
+            {
+                symLinkProcess.StartInfo.FileName = "cmd";
+                symLinkProcess.StartInfo.Arguments = string.Format("/c mklink{0} \"{1}\" \"{2}\"", isDirectory ? " /D" : "", Path.GetFullPath(linkPath), Path.GetFullPath(targetPath));
+            }
+            else
+            {
+                symLinkProcess.StartInfo.FileName = "/bin/ln";
+                symLinkProcess.StartInfo.Arguments = string.Format("-s \"{0}\" \"{1}\"", Path.GetFullPath(targetPath), Path.GetFullPath(linkPath));
+            }
+            symLinkProcess.StartInfo.RedirectStandardOutput = true;
+            symLinkProcess.Start();
+
+            if (symLinkProcess != null)
+            {
+                symLinkProcess.WaitForExit();
+                return (0 == symLinkProcess.ExitCode);
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 }

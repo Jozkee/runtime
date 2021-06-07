@@ -408,18 +408,104 @@ namespace System.IO
         public static string[] GetLogicalDrives()
             => DriveInfoInternal.GetLogicalDrives();
 
-        internal static string? GetLinkTarget(string linkPath)
+        internal static unsafe string GetLinkTarget(string linkPath, out bool isRelative)
         {
-            return null;
+            using SafeFileHandle handle = GetHandle(linkPath);
+            const int OUT_BUFFER_SIZE = 1024;
+            byte* buffer = stackalloc byte[OUT_BUFFER_SIZE];
+
+            bool success = Interop.Kernel32.DeviceIoControl(
+                handle,
+                Interop.Kernel32.FSCTL_GET_REPARSE_POINT,
+                lpInBuffer: IntPtr.Zero,
+                nInBufferSize: 0,
+                lpOutBuffer: buffer,
+                nOutBufferSize: OUT_BUFFER_SIZE,
+                out uint bytesReturned,
+                IntPtr.Zero);
+
+            if (!success)
+            {
+                Exception ex = Win32Marshal.GetExceptionForLastWin32Error(linkPath);
+                throw ex;
+            }
+
+            var span = new ReadOnlySpan<byte>(buffer, OUT_BUFFER_SIZE);
+            ref readonly Interop.Kernel32.REPARSE_DATA_BUFFER rdb = ref MemoryMarshal.AsRef<Interop.Kernel32.REPARSE_DATA_BUFFER>(span);
+
+            isRelative = (rdb.ReparseBufferSymbolicLink.Flags & Interop.Kernel32.SYMLINK_FLAG_RELATIVE) != 0;
+
+            // NOTE FOR REVIEWERS: I'm not completely sure if we should use PrintName or SubstituteName instead.
+            // I noticed that substitute name contains \??\ at the beginning.
+            // https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/b41f1cbf-10df-4a47-98d4-1c52a833d913
+            int offset = sizeof(Interop.Kernel32.REPARSE_DATA_BUFFER) + rdb.ReparseBufferSymbolicLink.PrintNameOffset;
+            int length = rdb.ReparseBufferSymbolicLink.PrintNameLength;
+
+            ReadOnlySpan<char> linkTarget = MemoryMarshal.Cast<byte, char>(span.Slice(offset, length));
+
+            return linkTarget.ToString();
         }
 
         internal static void CreateSymbolicLink(string linkPath, string target, bool isDirectory)
         {
+
         }
 
-        internal static FileSystemInfo? ResolveLinkTarget(string linkPath, bool returnFinalTarget, bool isDirectory)
+        internal static unsafe FileSystemInfo? ResolveLinkTarget(string linkPath, bool returnFinalTarget, bool isDirectory)
         {
-            return null;
+            // fast path:
+            // if returnFinalTarget
+            // return new *Info(GetFinalPathName());
+            // TODO: Create local function for this.
+            if (returnFinalTarget)
+            {
+                const int BUFFER_SIZE = 1024;
+                using SafeFileHandle handle = GetHandle(linkPath);
+                char* buffer = stackalloc char[BUFFER_SIZE];
+
+                uint res = Interop.Kernel32.GetFinalPathNameByHandle(handle, buffer, BUFFER_SIZE, Interop.Kernel32.FILE_NAME_NORMALIZED);
+
+                // If the function fails because lpszFilePath is too small to hold the string plus the terminating null character,
+                // the return value is the required buffer size, in TCHARs. This value includes the size of the terminating null character.
+                // This should never happen.
+                Debug.Assert(res <= BUFFER_SIZE);
+
+                // If the function fails for any other reason, the return value is zero.
+                if (res == 0)
+                {
+                    throw Win32Marshal.GetExceptionForLastWin32Error(linkPath);
+                }
+
+                // If the function succeeds, the return value is the length of the string received by lpszFilePath, in TCHARs.
+                // This value does not include the size of the terminating null character.
+                ReadOnlySpan<char> targetAsSpan = new ReadOnlySpan<char>(buffer, (int)res);
+                string target2 = targetAsSpan.ToString();
+                return isDirectory ? new DirectoryInfo(target2) : new FileInfo(target2);
+            }
+
+            string target = GetLinkTarget(linkPath, out bool isRelative);
+
+            if (isRelative)
+            {
+                string parent = Path.GetDirectoryName(linkPath)!;
+                target = Path.Combine(parent, target);
+            }
+
+            return isDirectory? new DirectoryInfo(target) : new FileInfo(target);
+        }
+
+        private static unsafe SafeFileHandle GetHandle(string path)
+        {
+            return Interop.Kernel32.CreateFile(
+                path,
+                dwDesiredAccess: 0,
+                FileShare.ReadWrite | FileShare.Delete,
+                lpSecurityAttributes: (Interop.Kernel32.SECURITY_ATTRIBUTES*)IntPtr.Zero,
+                FileMode.Open,
+                dwFlagsAndAttributes:
+                    Interop.Kernel32.FileOperations.FILE_FLAG_BACKUP_SEMANTICS |
+                    Interop.Kernel32.FileOperations.FILE_FLAG_OPEN_REPARSE_POINT,
+                hTemplateFile: IntPtr.Zero);
         }
     }
 }

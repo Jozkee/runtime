@@ -16,7 +16,7 @@ internal static partial class Interop
         public static unsafe extern bool DeviceIoControl(
             SafeHandle hDevice,
             /*ControlCode */ uint dwIoControlCode,
-            void* lpInBuffer,
+            IntPtr lpInBuffer,
             uint nInBufferSize,
             void* lpOutBuffer,
             uint nOutBufferSize,

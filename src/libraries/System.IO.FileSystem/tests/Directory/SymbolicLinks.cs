@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using System.Linq;
 using Xunit;
 
@@ -89,6 +90,46 @@ namespace System.IO.Tests
         {
             string linkPath = Path.Join(TestDirectory, GetTestFileName());
             Assert.Null(Directory.ResolveLinkTarget(linkPath));
+        }
+
+        [Fact]
+        public void LinkTarget_NotNull()
+        {
+            Debugger.Launch();
+
+            using var file = new TempFile(GetTestFilePath());
+            string linkPath = GetTestFilePath();
+            MountHelper.CreateSymbolicLink(linkPath, file.Path, isDirectory: false);
+
+            var linkInfo = new FileInfo(linkPath);
+
+            Assert.True(linkInfo.Exists);
+            Assert.NotNull(linkInfo.LinkTarget);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        //[InlineData(true)]
+        public void ResolveLinkTarget_NotNull(bool returnFinalTarget)
+        {
+            Debugger.Launch();
+
+            using var file = new TempFile(GetTestFilePath());
+
+            string linkPath = GetTestFilePath();
+            MountHelper.CreateSymbolicLink(linkPath, file.Path, isDirectory: false);
+
+            if (returnFinalTarget)
+            {
+                string link2Path = GetTestFilePath();
+                MountHelper.CreateSymbolicLink(link2Path, linkPath, isDirectory: false);
+                linkPath = link2Path;
+            }
+
+            FileSystemInfo linkTarget = new FileInfo(linkPath).ResolveLinkTarget(returnFinalTarget);
+
+            Assert.NotNull(linkTarget);
+            Assert.Equal(file.Path, linkTarget.FullName);
         }
     }
 }

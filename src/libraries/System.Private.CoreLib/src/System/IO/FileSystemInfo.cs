@@ -127,7 +127,7 @@ namespace System.IO
             {
                 if (_linkTarget == null && Exists)
                 {
-                    _linkTarget = FileSystem.GetLinkTarget(FullPath);
+                    _linkTarget = FileSystem.GetLinkTarget(FullPath, out _);
                 }
 
                 return _linkTarget;
