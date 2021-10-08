@@ -33,7 +33,7 @@ namespace System.IO
                 // The Windows implementation uses ReadFile, which ignores the offset if the handle
                 // isn't seekable.  We do the same manually with PRead vs Read, in order to enable
                 // the function to be used by FileStream for all the same situations.
-                int result = handle.CanSeek ?
+                int result = handle.IsRegularFile ?
                     Interop.Sys.PRead(handle, bufPtr, buffer.Length, fileOffset) :
                     Interop.Sys.Read(handle, bufPtr, buffer.Length);
                 FileStreamHelpers.CheckFileCall(result, handle.Path);
@@ -90,7 +90,7 @@ namespace System.IO
                     // The Windows implementation uses WriteFile, which ignores the offset if the handle
                     // isn't seekable.  We do the same manually with PWrite vs Write, in order to enable
                     // the function to be used by FileStream for all the same situations.
-                    int bytesWritten = handle.CanSeek ?
+                    int bytesWritten = handle.IsRegularFile ?
                         Interop.Sys.PWrite(handle, bufPtr, GetNumberOfBytesToWrite(buffer.Length), fileOffset) :
                         Interop.Sys.Write(handle, bufPtr, GetNumberOfBytesToWrite(buffer.Length));
 

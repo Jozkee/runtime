@@ -16,6 +16,7 @@ namespace Microsoft.Win32.SafeHandles
 
         // not using bool? as it's not thread safe
         private volatile NullableBool _canSeek = NullableBool.Undefined;
+        private volatile NullableBool _isRegularFile = NullableBool.Undefined;
         private bool _deleteOnClose;
         private bool _isLocked;
 
@@ -32,6 +33,8 @@ namespace Microsoft.Win32.SafeHandles
         public bool IsAsync { get; private set; }
 
         internal bool CanSeek => !IsClosed && GetCanSeek();
+
+        internal bool IsRegularFile => GetIsRegularFile();
 
         internal ThreadPoolBoundHandle? ThreadPoolBinding => null;
 
@@ -96,7 +99,12 @@ namespace Microsoft.Win32.SafeHandles
                     // and for regular files (most common case)
                     // avoid one extra sys call for determining whether file can be seeked
                     handle._canSeek = NullableBool.True;
+                    handle._isRegularFile = NullableBool.True;
                     Debug.Assert(Interop.Sys.LSeek(handle, 0, Interop.Sys.SeekWhence.SEEK_CUR) >= 0);
+                }
+                else
+                {
+                    handle._isRegularFile = NullableBool.False;
                 }
             }
 
@@ -387,6 +395,18 @@ namespace Microsoft.Win32.SafeHandles
             }
 
             return canSeek == NullableBool.True;
+        }
+
+        private bool GetIsRegularFile()
+        {
+            NullableBool isRegularFile = _isRegularFile;
+            if (isRegularFile == NullableBool.Undefined)
+            {
+                _isRegularFile = isRegularFile = (Interop.Sys.FStat(this, out Interop.Sys.FileStatus status) == 0
+                    && (status.Mode & Interop.Sys.FileTypes.S_IFMT) == Interop.Sys.FileTypes.S_IFREG) ? NullableBool.True : NullableBool.False;
+            }
+
+            return isRegularFile == NullableBool.True;
         }
 
         private enum NullableBool
