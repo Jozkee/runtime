@@ -24,23 +24,25 @@ namespace System.Security.Cryptography.Cose
         internal const CborTag Sign1Tag = (CborTag)18;
         internal const CborTag MultiSignTag = (CborTag)98;
 
-        internal byte[]? _content;
-        internal byte[] _protectedHeaderAsBstr;
-        internal bool _isTagged;
+        internal readonly byte[]? _content;
+        internal readonly byte[] _encodedProtectedHeaders;
+        internal readonly bool _isTagged;
 
         private CoseHeaderMap _protectedHeaders;
         private CoseHeaderMap _unprotectedHeaders;
-        public CoseHeaderMap ProtectedHeaders => _protectedHeaders;
-        public CoseHeaderMap UnprotectedHeaders => _unprotectedHeaders;
 
-        internal CoseMessage(CoseHeaderMap protectedHeader, CoseHeaderMap unprotectedHeader, byte[]? content, byte[] encodedProtectedHeader, bool isTagged)
+        internal CoseMessage(CoseHeaderMap protectedHeaders, CoseHeaderMap unprotectedHeaders, byte[]? content, byte[] encodedProtectedHeaders, bool isTagged)
         {
             _content = content;
-            _protectedHeaderAsBstr = encodedProtectedHeader;
-            _protectedHeaders = protectedHeader;
-            _unprotectedHeaders = unprotectedHeader;
+            _encodedProtectedHeaders = encodedProtectedHeaders;
+            _protectedHeaders = protectedHeaders;
+            _unprotectedHeaders = unprotectedHeaders;
             _isTagged = isTagged;
         }
+
+        public CoseHeaderMap ProtectedHeaders => _protectedHeaders;
+        public CoseHeaderMap UnprotectedHeaders => _unprotectedHeaders;
+        public ReadOnlyMemory<byte> EncodedProtectedHeaders => _encodedProtectedHeaders;
 
         // Sign and MAC also refer to the content as payload.
         // Encrypt also refers to the content as cyphertext.
@@ -98,13 +100,13 @@ namespace System.Security.Cryptography.Cose
                     throw new CryptographicException(SR.Format(SR.DecodeErrorWhileDecoding, SR.DecodeSign1ArrayLengthMustBeFour));
                 }
 
-                var protectedHeader = new CoseHeaderMap();
-                DecodeProtectedBucket(reader, protectedHeader, out byte[] protectedHeaderAsBstr);
+                var protectedHeaders = new CoseHeaderMap();
+                DecodeProtectedBucket(reader, protectedHeaders, out byte[] encodedProtectedHeaders);
 
-                var unprotectedHeader = new CoseHeaderMap();
-                DecodeUnprotectedBucket(reader, unprotectedHeader);
+                var unprotectedHeaders = new CoseHeaderMap();
+                DecodeUnprotectedBucket(reader, unprotectedHeaders);
 
-                ThrowIfDuplicateLabels(protectedHeader, unprotectedHeader);
+                ThrowIfDuplicateLabels(protectedHeaders, unprotectedHeaders);
 
                 byte[]? payload = DecodePayload(reader);
                 byte[] signature = DecodeSignature(reader);
@@ -115,7 +117,7 @@ namespace System.Security.Cryptography.Cose
                     throw new CryptographicException(SR.Format(SR.DecodeErrorWhileDecoding, SR.DecodeSign1MesageContainedTrailingData));
                 }
 
-                return new CoseSign1Message(protectedHeader, unprotectedHeader, payload, signature, protectedHeaderAsBstr, tag.HasValue);
+                return new CoseSign1Message(protectedHeaders, unprotectedHeaders, payload, signature, encodedProtectedHeaders, tag.HasValue);
             }
             catch (Exception ex) when (ex is CborContentException or InvalidOperationException)
             {

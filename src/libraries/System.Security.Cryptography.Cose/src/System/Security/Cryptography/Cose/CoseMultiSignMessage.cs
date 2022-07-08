@@ -314,7 +314,7 @@ namespace System.Security.Cryptography.Cose
 
         public override int GetEncodedLength()
         {
-            int encodedLength = CoseHelpers.GetCoseSignEncodedLengthMinusSignature(_isTagged, MultiSignSizeOfCborTag, _protectedHeaderAsBstr.Length, UnprotectedHeaders, _content);
+            int encodedLength = CoseHelpers.GetCoseSignEncodedLengthMinusSignature(_isTagged, MultiSignSizeOfCborTag, _encodedProtectedHeaders.Length, UnprotectedHeaders, _content);
             encodedLength += CoseHelpers.GetIntegerEncodedSize(Signatures.Count);
 
             foreach (CoseSignature signature in Signatures)
@@ -351,7 +351,7 @@ namespace System.Security.Cryptography.Cose
 
             writer.WriteStartArray(MultiSignArrayLength);
 
-            writer.WriteByteString(_protectedHeaderAsBstr);
+            writer.WriteByteString(_encodedProtectedHeaders);
 
             CoseHelpers.WriteHeaderMap(destination, writer, UnprotectedHeaders, isProtected: false, null);
 
@@ -447,7 +447,7 @@ namespace System.Security.Cryptography.Cose
 
             int toBeSignedLength = ComputeToBeSignedEncodedSize(
                 SigStructureContext.Signature,
-                _protectedHeaderAsBstr.Length,
+                _encodedProtectedHeaders.Length,
                 signProtectedEncodedLength,
                 associatedData.Length,
                 contentLength: 0);
@@ -462,11 +462,11 @@ namespace System.Security.Cryptography.Cose
 
                 using (IncrementalHash hasher = IncrementalHash.CreateHash(signer.HashAlgorithm))
                 {
-                    AppendToBeSigned(bufferSpan, hasher, SigStructureContext.Signature, _protectedHeaderAsBstr, encodedSignProtected, associatedData, contentBytes, contentStream);
+                    AppendToBeSigned(bufferSpan, hasher, SigStructureContext.Signature, _encodedProtectedHeaders, encodedSignProtected, associatedData, contentBytes, contentStream);
                     bytesWritten = CoseHelpers.SignHash(signer, hasher, buffer);
 
                     byte[] signature = bufferSpan.Slice(0, bytesWritten).ToArray();
-                    _signatures.Add(new CoseSignature(this, signProtectedHeaders, signer.UnprotectedHeaders, _protectedHeaderAsBstr, encodedSignProtected, signature));
+                    _signatures.Add(new CoseSignature(this, signProtectedHeaders, signer.UnprotectedHeaders, _encodedProtectedHeaders, encodedSignProtected, signature));
                 }
             }
             finally
@@ -500,7 +500,7 @@ namespace System.Security.Cryptography.Cose
 
             int toBeSignedLength = ComputeToBeSignedEncodedSize(
                 SigStructureContext.Signature,
-                _protectedHeaderAsBstr.Length,
+                _encodedProtectedHeaders.Length,
                 signProtectedEncodedLength,
                 associatedData.Length,
                 contentLength: 0);
@@ -512,11 +512,11 @@ namespace System.Security.Cryptography.Cose
 
             using (IncrementalHash hasher = IncrementalHash.CreateHash(signer.HashAlgorithm))
             {
-                await AppendToBeSignedAsync(buffer, hasher, SigStructureContext.Signature, _protectedHeaderAsBstr, encodedSignProtected, associatedData, content, cancellationToken).ConfigureAwait(false);
+                await AppendToBeSignedAsync(buffer, hasher, SigStructureContext.Signature, _encodedProtectedHeaders, encodedSignProtected, associatedData, content, cancellationToken).ConfigureAwait(false);
                 bytesWritten = CoseHelpers.SignHash(signer, hasher, buffer);
 
                 byte[] signature = buffer.AsSpan(0, bytesWritten).ToArray();
-                _signatures.Add(new CoseSignature(this, signProtectedHeaders, signer.UnprotectedHeaders, _protectedHeaderAsBstr, encodedSignProtected, signature));
+                _signatures.Add(new CoseSignature(this, signProtectedHeaders, signer.UnprotectedHeaders, _encodedProtectedHeaders, encodedSignProtected, signature));
             }
 
             ArrayPool<byte>.Shared.Return(buffer, clearArray: true);

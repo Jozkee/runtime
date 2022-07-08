@@ -34,6 +34,10 @@ namespace System.Security.Cryptography.Cose
             _encodedSignProtectedHeaders = encodedSignProtectedHeaders;
             _signature = signature;
         }
+
+        public ReadOnlyMemory<byte> EncodedProtectedHeaders => _encodedSignProtectedHeaders;
+        public ReadOnlyMemory<byte> Signature => _signature;
+
         internal CoseMultiSignMessage Message
         {
             get

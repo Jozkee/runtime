@@ -16,11 +16,13 @@ namespace System.Security.Cryptography.Cose
         private const int Sign1SizeOfCborTag = 1;
         private readonly byte[] _signature;
 
-        internal CoseSign1Message(CoseHeaderMap protectedHeader, CoseHeaderMap unprotectedHeader, byte[]? content, byte[] signature, byte[] protectedHeaderAsBstr, bool isTagged)
-            : base(protectedHeader, unprotectedHeader, content, protectedHeaderAsBstr, isTagged)
+        internal CoseSign1Message(CoseHeaderMap protectedHeaders, CoseHeaderMap unprotectedHeaders, byte[]? content, byte[] signature, byte[] encodedProtectedHeaders, bool isTagged)
+            : base(protectedHeaders, unprotectedHeaders, content, encodedProtectedHeaders, isTagged)
         {
             _signature = signature;
         }
+
+        public ReadOnlyMemory<byte> Signature => _signature;
 
         public static byte[] SignDetached(byte[] detachedContent, CoseSigner signer, byte[]? associatedData = null)
         {
@@ -307,7 +309,7 @@ namespace System.Security.Cryptography.Cose
             {
                 int bufferLength = ComputeToBeSignedEncodedSize(
                     SigStructureContext.Signature1,
-                    _protectedHeaderAsBstr.Length,
+                    _encodedProtectedHeaders.Length,
                     signProtectedLength: 0,
                     associatedData.Length,
                     contentLength: 0);
@@ -315,7 +317,7 @@ namespace System.Security.Cryptography.Cose
 
                 try
                 {
-                    AppendToBeSigned(buffer, hasher, SigStructureContext.Signature1, _protectedHeaderAsBstr, ReadOnlySpan<byte>.Empty, associatedData, contentBytes, contentStream);
+                    AppendToBeSigned(buffer, hasher, SigStructureContext.Signature1, _encodedProtectedHeaders, ReadOnlySpan<byte>.Empty, associatedData, contentBytes, contentStream);
                     return VerifyHash(key, hasher, hashAlgorithm, keyType, padding);
                 }
                 finally
@@ -370,13 +372,13 @@ namespace System.Security.Cryptography.Cose
             {
                 int bufferLength = ComputeToBeSignedEncodedSize(
                     SigStructureContext.Signature1,
-                    _protectedHeaderAsBstr.Length,
+                    _encodedProtectedHeaders.Length,
                     signProtectedLength: 0,
                     associatedData.Length,
                     contentLength: 0);
                 byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferLength);
 
-                await AppendToBeSignedAsync(buffer, hasher, SigStructureContext.Signature1, _protectedHeaderAsBstr, ReadOnlyMemory<byte>.Empty, associatedData, content, cancellationToken).ConfigureAwait(false);
+                await AppendToBeSignedAsync(buffer, hasher, SigStructureContext.Signature1, _encodedProtectedHeaders, ReadOnlyMemory<byte>.Empty, associatedData, content, cancellationToken).ConfigureAwait(false);
                 bool retVal = VerifyHash(key, hasher, hashAlgorithm, keyType, padding);
 
                 ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
@@ -430,7 +432,7 @@ namespace System.Security.Cryptography.Cose
         }
 
         public override int GetEncodedLength() =>
-            CoseHelpers.GetCoseSignEncodedLengthMinusSignature(_isTagged, Sign1SizeOfCborTag, _protectedHeaderAsBstr.Length, UnprotectedHeaders, _content) +
+            CoseHelpers.GetCoseSignEncodedLengthMinusSignature(_isTagged, Sign1SizeOfCborTag, _encodedProtectedHeaders.Length, UnprotectedHeaders, _content) +
             CoseHelpers.GetByteStringEncodedSize(_signature.Length);
 
         public override bool TryEncode(Span<byte> destination, out int bytesWritten)
@@ -452,7 +454,7 @@ namespace System.Security.Cryptography.Cose
 
             writer.WriteStartArray(Sign1ArrayLength);
 
-            writer.WriteByteString(_protectedHeaderAsBstr);
+            writer.WriteByteString(_encodedProtectedHeaders);
 
             CoseHelpers.WriteHeaderMap(destination, writer, UnprotectedHeaders, isProtected: false, null);
 

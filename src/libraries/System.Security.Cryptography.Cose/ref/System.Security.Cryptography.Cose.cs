@@ -77,6 +77,7 @@ namespace System.Security.Cryptography.Cose
     {
         internal CoseMessage() { }
         public System.ReadOnlyMemory<byte>? Content { get { throw null; } }
+        public System.ReadOnlyMemory<byte> EncodedProtectedHeaders { get { throw null; } }
         public System.Security.Cryptography.Cose.CoseHeaderMap ProtectedHeaders { get { throw null; } }
         public System.Security.Cryptography.Cose.CoseHeaderMap UnprotectedHeaders { get { throw null; } }
         public static System.Security.Cryptography.Cose.CoseMultiSignMessage DecodeMultiSign(byte[] cborPayload) { throw null; }
@@ -114,6 +115,7 @@ namespace System.Security.Cryptography.Cose
     public sealed partial class CoseSign1Message : System.Security.Cryptography.Cose.CoseMessage
     {
         internal CoseSign1Message() { }
+        public System.ReadOnlyMemory<byte> Signature { get { throw null; } }
         public override int GetEncodedLength() { throw null; }
         public static byte[] SignDetached(byte[] detachedContent, System.Security.Cryptography.Cose.CoseSigner signer, byte[]? associatedData = null) { throw null; }
         public static byte[] SignDetached(System.IO.Stream detachedContent, System.Security.Cryptography.Cose.CoseSigner signer, System.ReadOnlySpan<byte> associatedData = default(System.ReadOnlySpan<byte>)) { throw null; }
@@ -134,7 +136,9 @@ namespace System.Security.Cryptography.Cose
     public sealed partial class CoseSignature
     {
         internal CoseSignature() { }
+        public System.ReadOnlyMemory<byte> EncodedProtectedHeaders { get { throw null; } }
         public System.Security.Cryptography.Cose.CoseHeaderMap ProtectedHeaders { get { throw null; } }
+        public System.ReadOnlyMemory<byte> Signature { get { throw null; } }
         public System.Security.Cryptography.Cose.CoseHeaderMap UnprotectedHeaders { get { throw null; } }
         public bool VerifyDetached(System.Security.Cryptography.AsymmetricAlgorithm key, byte[] detachedContent, byte[]? associatedData = null) { throw null; }
         public bool VerifyDetached(System.Security.Cryptography.AsymmetricAlgorithm key, System.IO.Stream detachedContent, System.ReadOnlySpan<byte> associatedData = default(System.ReadOnlySpan<byte>)) { throw null; }

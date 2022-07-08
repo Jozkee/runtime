@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Formats.Cbor;
 using System.Linq;
 using Xunit;
@@ -536,6 +537,140 @@ namespace System.Security.Cryptography.Cose.Tests
 
             CoseSigner signer = GetCoseSigner(DefaultKey, DefaultHash, protectedHeaders);
             Assert.Throws<CryptographicException>(() => Sign(s_sampleContent, signer));
+        }
+
+        [Fact]
+        public void SignWithCounterSignature()
+        {
+            if (MessageKind != CoseMessageKind.MultiSign)
+            {
+                return;
+            }
+
+            CoseMessage msg = Decode(Sign(s_sampleContent, GetCoseSigner(DefaultKey, DefaultHash)));
+            CoseMultiSignMessage multiSignMsg = Assert.IsType<CoseMultiSignMessage>(msg);
+
+            // let's counter sign
+            var counterSignLabel = new CoseHeaderLabel(7);
+            CoseSignature signatureToCounterSign = multiSignMsg.Signatures[0];
+            byte[] encodedCounterSignature = GetCounterSign(multiSignMsg, signatureToCounterSign);
+            signatureToCounterSign.UnprotectedHeaders[counterSignLabel] = CoseHeaderValue.FromEncodedValue(encodedCounterSignature);
+
+            // re-encode
+            byte[] encodedMsg = msg.Encode();
+
+            List<(CoseHeaderLabel, ReadOnlyMemory<byte>)> expectedProtected = GetExpectedProtectedHeaders(DefaultAlgorithm);
+            List<(CoseHeaderLabel, ReadOnlyMemory<byte>)> expectedUnprotected = GetEmptyExpectedHeaders();
+            expectedUnprotected.Add((counterSignLabel, encodedCounterSignature));
+
+            AssertCoseSignMessage(encodedMsg, s_sampleContent, DefaultKey, DefaultAlgorithm, expectedProtected, expectedUnprotected);
+
+            // decode
+            msg = Decode(encodedMsg);
+            multiSignMsg = Assert.IsType<CoseMultiSignMessage>(msg);
+
+            ReadOnlyCollection<CoseSignature> signatures = multiSignMsg.Signatures;
+            Assert.Equal(1, signatures.Count);
+
+            var counterSignedSignature = signatures[0];
+            Assert.True(counterSignedSignature.UnprotectedHeaders.TryGetValue(counterSignLabel, out CoseHeaderValue value));
+
+            // and verify counter signature
+            (byte[] EncodedProtectedHeaders, byte[] Signature) counterSignInfo = ReadCounterSign(value, DefaultKey);
+            byte[] toBeSigned = GetToBeSignedForCounterSign(multiSignMsg, counterSignedSignature, counterSignInfo.EncodedProtectedHeaders);
+
+            Assert.True(VerifyCounterSign(DefaultKey, DefaultHash, toBeSigned, counterSignInfo.Signature));
+        }
+
+        private byte[] GetCounterSign(CoseMultiSignMessage msg, CoseSignature signature)
+        {
+            Assert.True(msg.Signatures.Contains(signature));
+
+            var writer = new CborWriter();
+            writer.WriteStartArray(3);
+            // encoded protected
+            byte[] encodedProtectedHeaders = GetCounterSignProtectedHeaders((int)DefaultAlgorithm);
+            writer.WriteByteString(encodedProtectedHeaders);
+            // empty unprotected headers
+            writer.WriteStartMap(0);
+            writer.WriteEndMap();
+            // signature
+            byte[] signatureBytes = GetSignature(DefaultKey, DefaultHash, GetToBeSignedForCounterSign(msg, signature, encodedProtectedHeaders));
+            writer.WriteByteString(signatureBytes);
+            writer.WriteEndArray();
+
+            return writer.Encode();
+        }
+
+        private static byte[] GetCounterSignProtectedHeaders(int algorithm)
+        {
+            var writer = new CborWriter();
+            writer.WriteStartMap(1);
+            writer.WriteInt32(1); // alg
+            writer.WriteInt32(algorithm);
+            writer.WriteEndMap();
+
+            return writer.Encode();
+        }
+
+        private static byte[] GetSignature(AsymmetricAlgorithm key, HashAlgorithmName hash, byte[] toBeSigned)
+        {
+            if (key is ECDsa ecdsa)
+            {
+                return ecdsa.SignData(toBeSigned, hash);
+            }
+            else if (key is RSA rsa)
+            {
+                return rsa.SignData(toBeSigned, hash, RSASignaturePadding.Pss);
+            }
+
+            throw new ArgumentException("Key must be ECDsa or RSA", nameof(key));
+        }
+
+        private static bool VerifyCounterSign(AsymmetricAlgorithm key, HashAlgorithmName hash, byte[] toBeSigned, byte[] signature)
+        {
+            if (key is ECDsa ecdsa)
+            {
+                return ecdsa.VerifyData(toBeSigned, signature, hash);
+            }
+            else if (key is RSA rsa)
+            {
+                return rsa.VerifyData(toBeSigned, signature, hash, RSASignaturePadding.Pss);
+            }
+
+            throw new ArgumentException("Key must be ECDsa or RSA", nameof(key));
+        }
+
+        private byte[] GetToBeSignedForCounterSign(CoseMultiSignMessage msg, CoseSignature signature, byte[] signProtected)
+        {
+            var writer = new CborWriter();
+            writer.WriteStartArray(5);
+            writer.WriteTextString("CounterSignature");
+            writer.WriteByteString(msg.EncodedProtectedHeaders.Span); // body_protected
+            writer.WriteByteString(signProtected); // sign_protected
+            writer.WriteByteString(default(Span<byte>)); // external_aad
+            writer.WriteByteString(signature.Signature.Span);
+            writer.WriteEndArray();
+
+            return writer.Encode();
+        }
+
+        private static (byte[] EncodedProtectedHeaders, byte[] Signature) ReadCounterSign(CoseHeaderValue value, AsymmetricAlgorithm key)
+        {
+            var reader = new CborReader(value.EncodedValue);
+            Assert.Equal(3, reader.ReadStartArray());
+
+            byte[] encodedProtectedHeaders = reader.ReadByteString();
+
+            Assert.Equal(0, reader.ReadStartMap());
+            reader.ReadEndMap();
+
+            byte[] signature = reader.ReadByteString();
+            Assert.Equal(GetSignatureSize(key), signature.Length);
+
+            reader.ReadEndArray();
+
+            return (encodedProtectedHeaders, signature);
         }
 
         [Fact]

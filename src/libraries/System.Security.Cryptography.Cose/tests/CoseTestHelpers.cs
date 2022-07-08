@@ -130,7 +130,8 @@ namespace System.Security.Cryptography.Cose.Tests
             Assert.Equal(4, reader.ReadStartArray());
 
             // Protected headers
-            AssertProtectedHeaders(reader.ReadByteString(), expectedProtectedHeaders ?? GetExpectedProtectedHeaders(algorithm));
+            byte[] encodedProtectedHeaders = reader.ReadByteString();
+            AssertProtectedHeaders(encodedProtectedHeaders, expectedProtectedHeaders ?? GetExpectedProtectedHeaders(algorithm));
 
             // Unprotected headers
             AssertHeaders(reader, expectedUnprotectedHeaders ?? GetEmptyExpectedHeaders());
@@ -164,6 +165,12 @@ namespace System.Security.Cryptography.Cose.Tests
                 Assert.True(msg.VerifyEmbedded(signingKey), "msg.Verify(key)");
             }
 
+            // Encoded Protected Headers
+            AssertExtensions.SequenceEqual(encodedProtectedHeaders, msg.EncodedProtectedHeaders.Span);
+
+            // Signature
+            AssertExtensions.SequenceEqual(signatureBytes, msg.Signature.Span);
+
             // GetEncodedLength
             Assert.Equal(encodedMsg.Length, msg.GetEncodedLength());
 
@@ -190,7 +197,8 @@ namespace System.Security.Cryptography.Cose.Tests
             Assert.Equal(4, reader.ReadStartArray());
 
             // Body's Protected headers
-            AssertProtectedHeaders(reader.ReadByteString(), expectedBodyProtectedHeaders);
+            byte[] encodedBodyProtectedHeaders = reader.ReadByteString();
+            AssertProtectedHeaders(encodedBodyProtectedHeaders, expectedBodyProtectedHeaders);
 
             // Body's Unprotected headers
             AssertHeaders(reader, expectedBodyUnprotectedHeaders ?? GetEmptyExpectedHeaders());
@@ -206,6 +214,8 @@ namespace System.Security.Cryptography.Cose.Tests
             }
 
             Assert.Equal(expectedSignatures, reader.ReadStartArray());
+            List<byte[]> listOfEncodedSignProtectedHeaders = new();
+            List<byte[]> listOfSignatureBytes = new();
 
             for (int i = 0; i < expectedSignatures; i++)
             {
@@ -213,7 +223,9 @@ namespace System.Security.Cryptography.Cose.Tests
                 Assert.Equal(3, reader.ReadStartArray());
 
                 // Sign's Protected headers
-                AssertProtectedHeaders(reader.ReadByteString(), expectedSignProtectedHeaders ?? GetExpectedProtectedHeaders(algorithm));
+                byte[] encodedSignProtectedHeaders = reader.ReadByteString();
+                AssertProtectedHeaders(encodedSignProtectedHeaders, expectedSignProtectedHeaders ?? GetExpectedProtectedHeaders(algorithm));
+                listOfEncodedSignProtectedHeaders.Add(encodedSignProtectedHeaders);
 
                 // Sign's Unprotected headers
                 AssertHeaders(reader, expectedSignUnprotectedHeaders ?? GetEmptyExpectedHeaders());
@@ -221,6 +233,7 @@ namespace System.Security.Cryptography.Cose.Tests
                 // Signature
                 byte[] signatureBytes = reader.ReadByteString();
                 Assert.Equal(GetSignatureSize(signingKey), signatureBytes.Length);
+                listOfSignatureBytes.Add(signatureBytes);
 
                 reader.ReadEndArray(); // End of Cose_Signature.
             }
@@ -233,7 +246,8 @@ namespace System.Security.Cryptography.Cose.Tests
             CoseMultiSignMessage msg = CoseMessage.DecodeMultiSign(encodedMsg);
             Assert.Equal(expectedSignatures, msg.Signatures.Count);
 
-            CoseSignature signature = msg.Signatures[0];
+            ReadOnlyCollection<CoseSignature> signatures = msg.Signatures;
+            CoseSignature signature = signatures[0];
 
             if (expectedDetachedContent)
             {
@@ -242,6 +256,18 @@ namespace System.Security.Cryptography.Cose.Tests
             else
             {
                 Assert.True(signature.VerifyEmbedded(signingKey), "msg.Verify(ecdsa)");
+            }
+
+            // Encoded Body Protected Headers
+            AssertExtensions.SequenceEqual(encodedBodyProtectedHeaders, msg.EncodedProtectedHeaders.Span);
+
+            for (int i = 0; i < signatures.Count; i++)
+            {
+                // Encoded Sign Protected Headers
+                AssertExtensions.SequenceEqual(listOfEncodedSignProtectedHeaders[i], signatures[i].EncodedProtectedHeaders.Span);
+
+                // Signature
+                AssertExtensions.SequenceEqual(listOfSignatureBytes[i], signatures[i].Signature.Span);
             }
 
             // GetEncodedLength
