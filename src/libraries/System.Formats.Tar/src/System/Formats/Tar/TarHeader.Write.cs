@@ -5,9 +5,7 @@ using System.Buffers;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -358,29 +356,88 @@ namespace System.Formats.Tar
             _checksum = WriteChecksum(tmpChecksum, buffer);
         }
 
-        // All formats save in the name byte array only the ASCII bytes that fit.
+        // All formats save in the name byte array only the ASCII bytes that fit. // TODO: UTF8 remove ASCII from the comment.
         private int WriteName(Span<byte> buffer)
         {
-            ReadOnlySpan<char> src = _name.AsSpan(0, Math.Min(_name.Length, FieldLengths.Name));
-            Span<byte> dest = buffer.Slice(FieldLocations.Name, FieldLengths.Name);
-            int encoded = Encoding.ASCII.GetBytes(src, dest);
-            return Checksum(dest.Slice(0, encoded));
+            ReadOnlySpan<char> name = _name;
+            (int utf8NameLength, int utf16NameTruncatedLength) = GetUtf8AndUtf16TruncatedTextLength(name, FieldLengths.Name);
+
+            if (_format is TarEntryFormat.V7 && utf8NameLength > FieldLengths.Name)
+            {
+                throw new Exception("Exceeded name length V7");
+            }
+
+            return WriteAsUtf8AndGetChecksum(name.Slice(0, utf16NameTruncatedLength), buffer.Slice(FieldLocations.Name, FieldLengths.Name));
+            //ReadOnlySpan<char> src = _name.AsSpan(0, Math.Min(_name.Length, FieldLengths.Name));
+            //Span<byte> dest = buffer.Slice(FieldLocations.Name, FieldLengths.Name);
+            //int encoded = Encoding.UTF8.GetBytes(src, dest); // TODO: UTF8
+            //return Checksum(dest.Slice(0, encoded));
         }
 
-        // Ustar and PAX save in the name byte array only the ASCII bytes that fit, and the rest of that string is saved in the prefix field.
+        // Returns the text's utf8 byte length, and the text's utf16 length truncated at the specified max length.
+        private static (int, int) GetUtf8AndUtf16TruncatedTextLength(ReadOnlySpan<char> text, int maxLength)
+        {
+            int utf8Length = 0;
+            int utf16TruncatedLength = 0;
+
+            foreach (Rune rune in text.EnumerateRunes())
+            {
+                utf8Length += rune.Utf8SequenceLength;
+                if (utf8Length <= maxLength)
+                    utf16TruncatedLength += rune.Utf16SequenceLength;
+            }
+
+            return (utf8Length, utf16TruncatedLength);
+        }
+
+        // If the pathname is too long to fit in the 100 bytes provided by
+        // the standard format, it can be split at any / character with the
+        // first portion going into the prefix field. If the prefix field
+        // is not empty, the reader will prepend the prefix value and a /
+        // character to the regular name field to obtain the full pathname.
         private int WritePosixName(Span<byte> buffer)
         {
-            int checksum = WriteName(buffer);
+            ReadOnlySpan<char> name;
+            ReadOnlySpan<char> prefix;
+            int indexOfLastSeparator = _name.AsSpan().LastIndexOfAny(PathInternal.DirectorySeparators);
+            bool hasPrefix = indexOfLastSeparator >= 0;
 
-            if (_name.Length > FieldLengths.Name)
+            if (!hasPrefix)
             {
-                int prefixBytesLength = Math.Min(_name.Length - FieldLengths.Name, FieldLengths.Prefix);
-                Span<byte> remaining = stackalloc byte[prefixBytesLength];
-                int encoded = Encoding.ASCII.GetBytes(_name.AsSpan(FieldLengths.Name, prefixBytesLength), remaining);
-                Debug.Assert(encoded == remaining.Length);
-
-                checksum += WriteLeftAlignedBytesAndGetChecksum(remaining, buffer.Slice(FieldLocations.Prefix, FieldLengths.Prefix));
+                name = _name;
+                prefix = default;
             }
+            else
+            {
+                ReadOnlySpan<char> nameSpan = _name;
+                name = nameSpan.Slice(indexOfLastSeparator + 1);
+                prefix = nameSpan.Slice(0, indexOfLastSeparator);
+            }
+
+            (int utf8NameLength, int utf16NameTruncatedLength) = GetUtf8AndUtf16TruncatedTextLength(name, FieldLengths.Name);
+            (int utf8PrefixLength, int utf16PrefixTruncatedLength) = GetUtf8AndUtf16TruncatedTextLength(prefix, FieldLengths.Prefix);
+
+            int utf8PathLength = utf8NameLength + (hasPrefix ? utf8PrefixLength + 1 : 0);
+            if (utf8PathLength <= FieldLengths.Name)
+            {
+                return WriteAsUtf8AndGetChecksum(_name, buffer.Slice(FieldLocations.Name, FieldLengths.Name));
+            }
+
+            if (_format is TarEntryFormat.Ustar)
+            {
+                if (utf8NameLength > FieldLengths.Name)
+                {
+                    throw new Exception("Exceeded Name length ustar.");
+                }
+
+                if (utf8PrefixLength > FieldLengths.Prefix)
+                {
+                    throw new Exception("Exceeded Prefix length ustar.");
+                }
+            }
+
+            int checksum = WriteAsUtf8AndGetChecksum(name.Slice(0, utf16NameTruncatedLength), buffer.Slice(FieldLocations.Name, FieldLengths.Name));
+            checksum += WriteAsUtf8AndGetChecksum(prefix.Slice(0, utf16PrefixTruncatedLength), buffer.Slice(FieldLocations.Prefix, FieldLengths.Prefix));
 
             return checksum;
         }
@@ -423,7 +480,7 @@ namespace System.Formats.Tar
 
             if (!string.IsNullOrEmpty(_linkName))
             {
-                checksum += WriteAsAsciiString(_linkName, buffer.Slice(FieldLocations.LinkName, FieldLengths.LinkName));
+                checksum += WriteAsUtf8String(_linkName, buffer.Slice(FieldLocations.LinkName, FieldLengths.LinkName), FieldLengths.LinkName); // TODO: UTF8
             }
 
             return checksum;
@@ -467,12 +524,12 @@ namespace System.Formats.Tar
 
             if (!string.IsNullOrEmpty(_uName))
             {
-                checksum += WriteAsAsciiString(_uName, buffer.Slice(FieldLocations.UName, FieldLengths.UName));
+                checksum += WriteAsUtf8String(_uName, buffer.Slice(FieldLocations.UName, FieldLengths.UName), FieldLengths.UName); // TODO: change to utf8 and throw if encoded size > 32
             }
 
             if (!string.IsNullOrEmpty(_gName))
             {
-                checksum += WriteAsAsciiString(_gName, buffer.Slice(FieldLocations.GName, FieldLengths.GName));
+                checksum += WriteAsUtf8String(_gName, buffer.Slice(FieldLocations.GName, FieldLengths.GName), FieldLengths.GName); // TODO: change to utf8 and throw if encoded size > 32
             }
 
             if (_devMajor > 0)
@@ -703,7 +760,7 @@ namespace System.Formats.Tar
             Debug.Assert(destination.Length > 1);
 
             // Copy as many bytes as will fit
-            int numToCopy = Math.Min(bytesToWrite.Length, destination.Length);
+            int numToCopy = Math.Min(bytesToWrite.Length, destination.Length);  // TODO: review if this truncation logic is correct.
             bytesToWrite = bytesToWrite.Slice(0, numToCopy);
             bytesToWrite.CopyTo(destination);
 
@@ -767,10 +824,18 @@ namespace System.Formats.Tar
         }
 
         // Writes the specified text as an ASCII string aligned to the left, and returns its checksum.
-        private static int WriteAsAsciiString(string str, Span<byte> buffer)
+        private static int WriteAsUtf8String(string str, Span<byte> buffer, int maxLength)
         {
-            byte[] bytes = Encoding.ASCII.GetBytes(str);
+            byte[] bytes = Encoding.UTF8.GetBytes(str);
+            //Debug.Assert(bytes.Length <= maxLength);
+
             return WriteLeftAlignedBytesAndGetChecksum(bytes.AsSpan(), buffer);
+        }
+
+        private static int WriteAsUtf8AndGetChecksum(ReadOnlySpan<char> text, Span<byte> destination)
+        {
+            Encoding.UTF8.GetBytes(text, destination);
+            return Checksum(destination);
         }
 
         // Gets the special name for the 'name' field in an extended attribute entry.

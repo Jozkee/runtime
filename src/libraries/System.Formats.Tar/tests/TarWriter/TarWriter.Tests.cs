@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using System.IO;
 using Xunit;
 
@@ -195,18 +194,14 @@ namespace System.Formats.Tar.Tests
             }
             else
             {
-                entryName = new string('a', 150);
+                entryName = new string('a', 100);
                 // 100 * 97 = 9700 (first 100 bytes go into 'name' field)
                 expectedChecksum += 9700;
 
-                // - V7 does not support name fields larger than 100, writes what it can
-                // - Gnu writes first 100 bytes in 'name' field, then the full name is written in a LonPath entry
-                // that precedes this one.
-                if (format is TarEntryFormat.Ustar or TarEntryFormat.Pax)
-                {
-                    // 50 * 97 = 4850 (rest of bytes go into 'prefix' field)
-                    expectedChecksum += 4850;
-                }
+                // - V7 does not support name fields larger than 100, throws.
+                // - Gnu writes first 100 bytes in 'name' field, then the full name is written in a LongPath entry that precedes this one.
+                // - Ustar writes in 'name' field if the full path would fit there.
+                //   If not, tries to use 'prefix' only if there is a separator to split the directory from the name.
             }
             return expectedChecksum;
         }

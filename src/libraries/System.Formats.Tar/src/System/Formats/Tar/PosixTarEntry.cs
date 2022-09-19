@@ -103,6 +103,7 @@ namespace System.Formats.Tar
             set
             {
                 ArgumentNullException.ThrowIfNull(value);
+                //TarHelpers.ValidateUtf8EncodedMaxLength(value, FieldLengths.GName);
                 _header._gName = value;
             }
         }
@@ -118,6 +119,7 @@ namespace System.Formats.Tar
             set
             {
                 ArgumentNullException.ThrowIfNull(value);
+                //TarHelpers.ValidateUtf8EncodedMaxLength(value, FieldLengths.UName);
                 _header._uName = value;
             }
         }

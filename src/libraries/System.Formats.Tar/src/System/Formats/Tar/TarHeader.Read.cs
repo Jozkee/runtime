@@ -454,7 +454,7 @@ namespace System.Formats.Tar
             }
             else
             {
-                _magic = Encoding.ASCII.GetString(magic);
+                _magic = Encoding.ASCII.GetString(magic); // no change
             }
         }
 
@@ -507,7 +507,7 @@ namespace System.Formats.Tar
                     break;
 
                 default:
-                    _version = Encoding.ASCII.GetString(version);
+                    _version = Encoding.ASCII.GetString(version); // no change
                     break;
             }
         }
@@ -517,8 +517,8 @@ namespace System.Formats.Tar
         private void ReadPosixAndGnuSharedAttributes(Span<byte> buffer)
         {
             // Convert the byte arrays
-            _uName = TarHelpers.GetTrimmedAsciiString(buffer.Slice(FieldLocations.UName, FieldLengths.UName));
-            _gName = TarHelpers.GetTrimmedAsciiString(buffer.Slice(FieldLocations.GName, FieldLengths.GName));
+            _uName = TarHelpers.GetTrimmedUtf8String(buffer.Slice(FieldLocations.UName, FieldLengths.UName)); // TODO: UTF8
+            _gName = TarHelpers.GetTrimmedUtf8String(buffer.Slice(FieldLocations.GName, FieldLengths.GName)); // TODO: UTF8
 
             // DevMajor and DevMinor only have values with character devices and block devices.
             // For all other typeflags, the values in these fields are irrelevant.

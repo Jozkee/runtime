@@ -261,9 +261,13 @@ namespace System.Formats.Tar
             return buffer.Slice(newStart);
         }
 
-        // Returns the ASCII string contained in the specified buffer of bytes,
-        // removing the trailing null or space chars.
-        internal static string GetTrimmedAsciiString(ReadOnlySpan<byte> buffer) => GetTrimmedString(buffer, Encoding.ASCII);
+        internal static void ValidateUtf8EncodedMaxLength(ReadOnlySpan<char> value, int maxLength)
+        {
+            if (Encoding.UTF8.GetByteCount(value) > maxLength)
+            {
+                throw new ArgumentException($"{nameof(value)} exceeds the maximum allowed length of {maxLength}.");
+            }
+        }
 
         // Returns the UTF8 string contained in the specified buffer of bytes,
         // removing the trailing null or space chars.

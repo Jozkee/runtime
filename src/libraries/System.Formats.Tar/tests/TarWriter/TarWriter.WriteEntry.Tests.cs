@@ -355,5 +355,19 @@ namespace System.Formats.Tar.Tests
                 return expectedName;
             }
         }
+
+
+        // TODO
+        //public static IEnumerable<object[]> WriteEntry_NameDoesNotFit_TheoryData()
+        //{
+
+        //}
+
+        //[Theory]
+        //[MemberData(nameof(WriteEntry_NameDoesNotFit_TheoryData))]
+        //public void WriteEntry_NameDoesNotFit_Throw(TarEntryFormat entryFormat, TarEntryType entryType, string name)
+        //{
+
+        //}
     }
 }

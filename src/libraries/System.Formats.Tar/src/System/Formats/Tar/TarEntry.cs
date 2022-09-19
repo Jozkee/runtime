@@ -128,6 +128,13 @@ namespace System.Formats.Tar
                     throw new InvalidOperationException(SR.TarEntryHardLinkOrSymLinkExpected);
                 }
                 ArgumentException.ThrowIfNullOrEmpty(value);
+
+                // Pax and Gnu can store long names.
+                //if (_header._format is not TarEntryFormat.Pax and not TarEntryFormat.Gnu)
+                //{
+                //    TarHelpers.ValidateUtf8EncodedMaxLength(value, FieldLengths.LinkName);
+                //}
+
                 _header._linkName = value;
             }
         }
@@ -158,6 +165,28 @@ namespace System.Formats.Tar
             set
             {
                 ArgumentException.ThrowIfNullOrEmpty(value);
+
+                // V7 should throw for paths longer than 100,
+                // but ustar could handle paths as long as 256 if the filename is <= 100 and the directory <= 156 with trailing slash.
+                // TODO: decide what to do with Format Unknown.
+                //if (_header._format is TarEntryFormat.V7)
+                //{
+                //    TarHelpers.ValidateUtf8EncodedMaxLength(value, FieldLengths.Name);
+                //}
+                //else if (_header._format is TarEntryFormat.Ustar)
+                //{
+                //    ReadOnlySpan<char> directorySeparators = stackalloc char[2] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+                //    int nameSeparatorIndex = value.AsSpan().LastIndexOfAny(directorySeparators);
+                //    nameSeparatorIndex = nameSeparatorIndex == -1 ? 0 : nameSeparatorIndex + 1;
+
+                //    TarHelpers.ValidateUtf8EncodedMaxLength(value.AsSpan(nameSeparatorIndex), FieldLengths.Name);
+                //    if (nameSeparatorIndex > 0)
+                //    {
+                //        TarHelpers.ValidateUtf8EncodedMaxLength(value.AsSpan(0, nameSeparatorIndex))
+                //    }
+                //}
+
+
                 _header._name = value;
             }
         }
