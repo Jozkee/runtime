@@ -7,6 +7,10 @@
     <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\System.Memory\tests\SequenceReader\OwnedArray.cs" Link="OwnedArray.cs" />
+    <Compile Include="..\..\System.Memory\tests\SequenceReader\SequenceFactory.cs" Link="SequenceFactory.cs" />
+    <Compile Include="..\..\System.Memory\tests\SequenceReader\SequenceSegment.cs" Link="SequenceSegment.cs" />
+    <Compile Include="..\..\System.Memory\tests\SequenceReader\SpanLiteralExtensions.cs" Link="SpanLiteralExtensions.cs" />
     <Compile Include="IndentedTextWriter.cs" />
     <Compile Include="BinaryReader\BinaryReaderTests.cs" />
     <Compile Include="MemoryStream\MemoryStream.ToArrayTests.cs" />
@@ -36,12 +40,14 @@
     <Compile Include="StreamWriter\StreamWriter.DisposeAsync.cs" />
     <Compile Include="StreamWriter\StreamWriter.FlushTests.cs" />
     <Compile Include="StreamWriter\StreamWriter.WriteTests.cs" />
+    <Compile Include="Stream\Stream.AsStreamTests.cs" />
     <Compile Include="Stream\Stream.ReadAtLeast.cs" />
     <Compile Include="Stream\Stream.ReadExactly.cs" />
     <Compile Include="Stream\Stream.DisposeAsync.cs" />
     <Compile Include="Stream\Stream.ReadWriteSpan.cs" />
     <Compile Include="Stream\Stream.NullTests.cs" />
     <Compile Include="Stream\Stream.CopyToTests.cs" />
+    <Compile Include="Stream\StreamMemoryExtensions.cs" />
     <Compile Include="Stream\SyncStreamConformanceTests.cs" />
     <Compile Include="Stream\Stream.TestLeaveOpen.cs" />
     <Compile Include="Stream\Stream.TimeoutTests.cs" />
@@ -59,6 +65,7 @@
     <Compile Include="TextWriter\CharArrayTextWriter.cs" />
     <Compile Include="TextWriter\TextWriterTests.cs" />
     <Compile Include="$(CommonTestPath)System\IO\ConnectedStreams.cs" Link="Common\System\IO\ConnectedStreams.cs" />
+    <Compile Include="$(CommonPath)System\Memory\PointerMemoryManager.cs" Link="Common\System\Memory\PointerMemoryManager.cs" />
     <Compile Include="$(CommonPath)System\Net\MultiArrayBuffer.cs" Link="ProductionCode\Common\System\Net\MultiArrayBuffer.cs" />
     <Compile Include="$(CommonPath)System\Net\StreamBuffer.cs" Link="ProductionCode\Common\System\Net\StreamBuffer.cs" />
   </ItemGroup>

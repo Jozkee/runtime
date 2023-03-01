@@ -1,12 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Runtime.InteropServices;
+
 namespace System.Buffers
 {
     internal sealed unsafe class PointerMemoryManager<T> : MemoryManager<T> where T : struct
     {
-        private readonly void* _pointer;
+        private void* _pointer;
         private readonly int _length;
+        private int _retainedCount;
+        private bool _disposed;
 
         internal PointerMemoryManager(void* pointer, int length)
         {
@@ -16,6 +20,7 @@ namespace System.Buffers
 
         protected override void Dispose(bool disposing)
         {
+            _disposed = true;
         }
 
         public override Span<T> GetSpan()
@@ -23,13 +28,45 @@ namespace System.Buffers
             return new Span<T>(_pointer, _length);
         }
 
-        public override MemoryHandle Pin(int elementIndex = 0)
+        public override unsafe MemoryHandle Pin(int elementIndex = 0)
         {
-            throw new NotSupportedException();
+            // Note that this intentionally allows elementIndex == _length to
+            // support pinning zero-length instances.
+            if ((uint)elementIndex > (uint)_length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(elementIndex));
+            }
+
+            lock (this)
+            {
+                if (_retainedCount == 0 && _disposed)
+                {
+                    throw new Exception();
+                }
+                _retainedCount++;
+            }
+
+            void* pointer = ((byte*)_pointer + elementIndex);    // T = byte
+            return new MemoryHandle(pointer, default, this);
         }
 
         public override void Unpin()
         {
+            lock (this)
+            {
+                if (_retainedCount > 0)
+                {
+                    _retainedCount--;
+                    if (_retainedCount == 0)
+                    {
+                        if (_disposed)
+                        {
+                            Marshal.FreeHGlobal((IntPtr)_pointer);
+                            _pointer = null;
+                        }
+                    }
+                }
+            }
         }
     }
 }
