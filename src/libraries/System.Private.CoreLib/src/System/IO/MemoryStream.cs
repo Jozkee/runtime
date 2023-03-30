@@ -20,7 +20,10 @@ namespace System.IO
     // a stream "view" of the data.
     public class MemoryStream : Stream
     {
-        private byte[] _buffer;    // Either allocated internally or externally.
+        private Memory<byte> _buffer;
+        private byte[]? _bufferArray;    // Either allocated internally or externally.
+        private MemoryHandle _bufferHandle;
+
         private readonly int _origin;       // For user-provided arrays, start at this origin
         private int _position;     // read/write head.
         private int _length;       // Number of bytes within the memory stream
@@ -45,7 +48,7 @@ namespace System.IO
         {
             ArgumentOutOfRangeException.ThrowIfNegative(capacity);
 
-            _buffer = capacity != 0 ? new byte[capacity] : Array.Empty<byte>();
+            SetBuffer(capacity != 0 ? new byte[capacity] : Array.Empty<byte>());
             _capacity = capacity;
             _expandable = true;
             _writable = true;
@@ -62,7 +65,7 @@ namespace System.IO
         {
             ArgumentNullException.ThrowIfNull(buffer);
 
-            _buffer = buffer;
+            SetBuffer(buffer);
             _length = _capacity = buffer.Length;
             _writable = writable;
             _isOpen = true;
@@ -87,12 +90,25 @@ namespace System.IO
             if (buffer.Length - index < count)
                 throw new ArgumentException(SR.Argument_InvalidOffLen);
 
-            _buffer = buffer;
+            SetBuffer(buffer);
             _origin = _position = index;
             _length = _capacity = index + count;
             _writable = writable;
             _exposable = publiclyVisible;  // Can TryGetBuffer/GetBuffer return the array?
             _isOpen = true;
+        }
+
+        public MemoryStream(Memory<byte> buffer)
+            : this(buffer, true)
+        {
+        }
+
+        public MemoryStream(Memory<byte> buffer, bool writable)
+        {
+            SetBuffer(buffer);
+            _length = _capacity = buffer.Length;
+            _isOpen = true;
+            _writable = writable;
         }
 
         public override bool CanRead => _isOpen;
@@ -180,7 +196,7 @@ namespace System.IO
         {
             if (!_exposable)
                 throw new UnauthorizedAccessException(SR.UnauthorizedAccess_MemStreamBuffer);
-            return _buffer;
+            return _bufferArray!;
         }
 
         public virtual bool TryGetBuffer(out ArraySegment<byte> buffer)
@@ -191,8 +207,26 @@ namespace System.IO
                 return false;
             }
 
-            buffer = new ArraySegment<byte>(_buffer, offset: _origin, count: _length - _origin);
+            buffer = new ArraySegment<byte>(_bufferArray!, offset: _origin, count: _length - _origin);
             return true;
+        }
+
+        private unsafe Span<byte> GetSpan(int offset, int count)
+        {
+            return new Span<byte>((byte*)_bufferHandle.Pointer + offset, count);
+        }
+
+        private void SetBuffer(byte[] newBuffer)
+        {
+            _bufferArray = newBuffer;
+            SetBuffer(newBuffer.AsMemory());
+        }
+
+        private void SetBuffer(Memory<byte> newBuffer)
+        {
+            _buffer = newBuffer;
+            _bufferHandle.Dispose();
+            _bufferHandle = newBuffer.Pin();
         }
 
         // -------------- PERF: Internal functions for fast direct access of MemoryStream buffer (cf. BinaryReader for usage) ---------------
@@ -200,7 +234,7 @@ namespace System.IO
         // PERF: Internal sibling of GetBuffer, always returns a buffer (cf. GetBuffer())
         internal byte[] InternalGetBuffer()
         {
-            return _buffer;
+            return _bufferArray!;
         }
 
         // PERF: True cursor position, we don't need _origin for direct access
@@ -224,7 +258,7 @@ namespace System.IO
                 ThrowHelper.ThrowEndOfFileException();
             }
 
-            var span = new ReadOnlySpan<byte>(_buffer, origPos, count);
+            ReadOnlySpan<byte> span = GetSpan(origPos, count);
             _position = newPos;
             return span;
         }
@@ -276,13 +310,13 @@ namespace System.IO
                         byte[] newBuffer = new byte[value];
                         if (_length > 0)
                         {
-                            Buffer.BlockCopy(_buffer, 0, newBuffer, 0, _length);
+                            GetSpan(0, _length).CopyTo(newBuffer);
                         }
-                        _buffer = newBuffer;
+                        SetBuffer(newBuffer);
                     }
                     else
                     {
-                        _buffer = Array.Empty<byte>();
+                        SetBuffer(Array.Empty<byte>());
                     }
                     _capacity = value;
                 }
@@ -329,14 +363,7 @@ namespace System.IO
 
             Debug.Assert(_position + n >= 0, "_position + n >= 0");  // len is less than 2^31 -1.
 
-            if (n <= 8)
-            {
-                int byteCount = n;
-                while (--byteCount >= 0)
-                    buffer[offset + byteCount] = _buffer[_position + byteCount];
-            }
-            else
-                Buffer.BlockCopy(_buffer, _position, buffer, offset, n);
+            GetSpan(_position, n).CopyTo(new Span<byte>(buffer, offset, n));
             _position += n;
 
             return n;
@@ -358,8 +385,7 @@ namespace System.IO
             if (n <= 0)
                 return 0;
 
-            new Span<byte>(_buffer, _position, n).CopyTo(buffer);
-
+            GetSpan(_position, n).CopyTo(buffer);
             _position += n;
             return n;
         }
@@ -430,7 +456,7 @@ namespace System.IO
             if (_position >= _length)
                 return -1;
 
-            return _buffer[_position++];
+            return GetSpan(0, _length)[_position++];
         }
 
         public override void CopyTo(Stream destination, int bufferSize)
@@ -459,7 +485,16 @@ namespace System.IO
             {
                 // Call Write() on the other Stream, using our internal buffer and avoiding any
                 // intermediary allocations.
-                destination.Write(_buffer, originalPosition, remaining);
+                //  To avoid breaking existing scenarios, use Write(byte[], ...)
+                //  when this MemoryStream was created using an array.
+                if (_bufferArray != null)
+                {
+                    destination.Write(_bufferArray!, originalPosition, remaining);
+                }
+                else
+                {
+                    destination.Write(GetSpan(originalPosition, remaining));
+                }
             }
         }
 
@@ -494,12 +529,23 @@ namespace System.IO
 
             // If destination is not a memory stream, write there asynchronously:
             if (!(destination is MemoryStream memStrDest))
-                return destination.WriteAsync(_buffer, pos, n, cancellationToken);
+            {
+                //  To avoid breaking existing scenarios, use WriteAsync(byte[], ...)
+                //  when this MemoryStream was created using an array.
+                if (_bufferArray != null)
+                {
+                    return destination.WriteAsync(_bufferArray, pos, n, cancellationToken);
+                }
+                else
+                {
+                    return destination.WriteAsync(_buffer.Slice(pos, n), cancellationToken).AsTask();
+                }
+            }
 
             try
             {
                 // If destination is a MemoryStream, CopyTo synchronously:
-                memStrDest.Write(_buffer, pos, n);
+                memStrDest.Write(_buffer.Slice(pos, n).Span);
                 return Task.CompletedTask;
             }
             catch (Exception ex)
@@ -574,7 +620,7 @@ namespace System.IO
             int newLength = _origin + (int)value;
             bool allocatedNewArray = EnsureCapacity(newLength);
             if (!allocatedNewArray && newLength > _length)
-                Array.Clear(_buffer, _length, newLength - _length);
+                GetSpan(_length, newLength - _length).Clear();
             _length = newLength;
             if (_position > newLength)
                 _position = newLength;
@@ -586,7 +632,8 @@ namespace System.IO
             if (count == 0)
                 return Array.Empty<byte>();
             byte[] copy = GC.AllocateUninitializedArray<byte>(count);
-            _buffer.AsSpan(_origin, count).CopyTo(copy);
+
+            GetSpan(_origin, count).CopyTo(copy);
             return copy;
         }
 
@@ -614,22 +661,12 @@ namespace System.IO
                 }
                 if (mustZero)
                 {
-                    Array.Clear(_buffer, _length, i - _length);
+                    GetSpan(_length, i - _length).Clear();
                 }
                 _length = i;
             }
-            if ((count <= 8) && (buffer != _buffer))
-            {
-                int byteCount = count;
-                while (--byteCount >= 0)
-                {
-                    _buffer[_position + byteCount] = buffer[offset + byteCount];
-                }
-            }
-            else
-            {
-                Buffer.BlockCopy(buffer, offset, _buffer, _position, count);
-            }
+
+            new ReadOnlySpan<byte>(buffer, offset, count).CopyTo(GetSpan(_position, count));
             _position = i;
         }
 
@@ -665,12 +702,12 @@ namespace System.IO
                 }
                 if (mustZero)
                 {
-                    Array.Clear(_buffer, _length, i - _length);
+                    GetSpan(_length, i - _length).Clear();
                 }
                 _length = i;
             }
 
-            buffer.CopyTo(new Span<byte>(_buffer, _position, buffer.Length));
+            buffer.CopyTo(GetSpan(_position, buffer.Length));
             _position = i;
         }
 
@@ -747,11 +784,11 @@ namespace System.IO
                 }
                 if (mustZero)
                 {
-                    Array.Clear(_buffer, _length, _position - _length);
+                    GetSpan(_length, _position - _length).Clear();
                 }
                 _length = newLength;
             }
-            _buffer[_position++] = value;
+            GetSpan(0, _length)[_position++] = value;
         }
 
         // Writes this MemoryStream to another stream.
@@ -761,7 +798,14 @@ namespace System.IO
 
             EnsureNotClosed();
 
-            stream.Write(_buffer, _origin, _length - _origin);
+            if (_bufferArray != null)
+            {
+                stream.Write(_bufferArray, _origin, _length - _origin);
+            }
+            else
+            {
+                stream.Write(GetSpan(_origin, _length - _origin));
+            }
         }
     }
 }
