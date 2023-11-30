@@ -195,11 +195,11 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns
 
             if (segmentsPatternStartsWith == null)
             {
-                return new LinearPattern(allSegments);
+                return new LinearPattern(allSegments, pattern); // TODO: is this now rooting the string? I think yes.
             }
             else
             {
-                return new RaggedPattern(allSegments, segmentsPatternStartsWith, segmentsPatternEndsWith!, segmentsPatternContains!);
+                return new RaggedPattern(allSegments, segmentsPatternStartsWith, segmentsPatternEndsWith!, segmentsPatternContains!, pattern);
             }
         }
 
@@ -214,11 +214,14 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns
             return pattern.Substring(beginIndex, endIndex - beginIndex);
         }
 
-        private sealed class LinearPattern : ILinearPattern
+        internal sealed class LinearPattern : ILinearPattern
         {
-            public LinearPattern(List<IPathSegment> allSegments)
+            internal readonly string _pattern;
+
+            public LinearPattern(List<IPathSegment> allSegments, string pattern)
             {
                 Segments = allSegments;
+                _pattern = pattern;
             }
 
             public IList<IPathSegment> Segments { get; }
@@ -234,14 +237,16 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns
             }
         }
 
-        private sealed class RaggedPattern : IRaggedPattern
+        internal sealed class RaggedPattern : IRaggedPattern
         {
-            public RaggedPattern(List<IPathSegment> allSegments, IList<IPathSegment> segmentsPatternStartsWith, IList<IPathSegment> segmentsPatternEndsWith, IList<IList<IPathSegment>> segmentsPatternContains)
+            internal readonly string _pattern;
+            public RaggedPattern(List<IPathSegment> allSegments, IList<IPathSegment> segmentsPatternStartsWith, IList<IPathSegment> segmentsPatternEndsWith, IList<IList<IPathSegment>> segmentsPatternContains, string pattern)
             {
                 Segments = allSegments;
                 StartsWith = segmentsPatternStartsWith;
                 Contains = segmentsPatternContains;
                 EndsWith = segmentsPatternEndsWith;
+                _pattern = pattern;
             }
 
             public IList<IList<IPathSegment>> Contains { get; }

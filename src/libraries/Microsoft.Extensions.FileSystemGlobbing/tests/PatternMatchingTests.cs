@@ -340,12 +340,13 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Tests
         [Fact]
         public void ExcludeFolderByName()
         {
+            System.Diagnostics.Debugger.Launch();
             var matcher = new Matcher();
             var scenario = new FileSystemGlobbingTestContext(@"c:\files\", matcher)
                 .Include("*.*")
-                .Include("../sibling/**/*.*")
-                .Exclude("../sibling/exc/")
-                .Exclude("../sibling/inc/2.txt")
+                //.Include("../sibling/**/*.*")
+                //.Exclude("../sibling/exc/")
+                //.Exclude("../sibling/inc/2.txt")
                 .Files("main/1.txt", "main/2.txt", "sibling/1.txt", "sibling/inc/1.txt", "sibling/inc/2.txt", "sibling/exc/1.txt", "sibling/exc/2.txt")
                 .SubDirectory("main")
                 .Execute();

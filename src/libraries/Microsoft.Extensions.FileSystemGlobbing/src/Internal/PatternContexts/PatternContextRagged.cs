@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
+using static Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns.PatternBuilder;
 
 namespace Microsoft.Extensions.FileSystemGlobbing.Internal.PatternContexts
 {
@@ -40,6 +41,26 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Internal.PatternContexts
                 // initializing
                 frame.SegmentGroupIndex = -1;
                 frame.SegmentGroup = Pattern.StartsWith;
+                Frame.SegmentGroup = Pattern.StartsWith;
+
+                //if (Pattern is RaggedPattern ragged && System.IO.Path.IsPathRooted(ragged._pattern))
+                //{
+                    // first time we are pushing a directory, and the pattern is rooted we need to adjust SegmentIndex to be on par with the root directory.
+                    string[] rootSegments = directory.FullName.Split(System.IO.Path.DirectorySeparatorChar); // todo this should be splitted in LinearPatern so it makes more sense.
+                    foreach (string segment in rootSegments)
+                    {
+                        if (TestMatchingSegment(segment))
+                        {
+                            Frame.SegmentIndex++;
+                        }
+                        else
+                        {
+                            //frame.IsNotApplicable = true;
+                            break;
+                        }
+                    }
+                    frame.SegmentIndex = Frame.SegmentIndex;
+                //}
             }
             else if (Frame.IsNotApplicable)
             {

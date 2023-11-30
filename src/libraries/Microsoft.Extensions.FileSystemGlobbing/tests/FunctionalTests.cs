@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
@@ -851,5 +852,84 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Tests
 
             Assert.Equal(1, fileSystemInfos.Count());
         }
+
+        [Fact]
+        public void quicktest()
+        {
+            Debugger.Launch();
+            var matcher = new Matcher();
+            //dllMatcher.AddInclude("C:\\Windows\\*.exe"); // absolute
+            //dllMatcher.AddInclude("*.exe"); // relative
+            //var results = dllMatcher.Execute(new DirectoryInfoWrapper(new DirectoryInfo(Environment.CurrentDirectory)));
+            // results does not contain anything from C:\Windows
+
+            string rootDir = @"C:\foo";
+            // Directory.GetFileSystemEntries(rootDir, "*", new EnumerationOptions { RecurseSubdirectories = true });
+            string[] files = [@"C:\foo\bar", @"C:\foo\file.txt", @"C:\foo\bar\notes.txt"];
+            Console.WriteLine(string.Join(", ", files));
+
+            PatternMatchingResult result = matcher.Match(rootDir, files);
+            //Debugger.Launch();
+
+            matcher.AddInclude(@"C:\foo\bar");
+            result = matcher.Match(rootDir, files);
+
+            Assert.True(result.HasMatches);
+
+            Console.WriteLine(string.Join(", ", result.Files.Select(f => f.Path)));
+        }
+
+        // test GetFileList with rootDir and absolute patterns
+        [Theory]
+        //[InlineData("root")]
+        //[InlineData("root/test.0", "root/test.0")]
+        //// Wildcard at end.
+        //[InlineData("root/*", "root/test.0")]
+        //[InlineData("root/*.*", "root/test.0")]
+        //[InlineData("root/", "root/test.0", "root/dir1/test.1", "root/dir1/dir2/test.2")]
+        //[InlineData("root/**", "root/test.0", "root/dir1/test.1", "root/dir1/dir2/test.2")]
+        //[InlineData("root/**/*", "root/test.0", "root/dir1/test.1", "root/dir1/dir2/test.2")]
+        //// Wildcard at beginning.
+        [InlineData("**/root/test.0", "root/test.0")]
+        //[InlineData("**/root")]
+        //// Wildcard at middle. Middle doesn't matter because the root C:\ is prefixed.
+        //[InlineData("src/project/*/source2.cs", "src/project/sub/source2.cs")]
+        //[InlineData("src/project/**/source2.cs", "src/project/sub/source2.cs")]
+
+
+        // TODO add recursive patterns in between better than the ones below
+        //[InlineData("**/root/", "root/test.0", "root/dir1/test.1", "root/dir1/dir2/test.2")]
+        //[InlineData("**/root/**", "root/test.0", "root/dir1/test.1", "root/dir1/dir2/test.2")]
+        //[InlineData("**/root/**/*", "root/test.0", "root/dir1/test.1", "root/dir1/dir2/test.2")]
+        public void qt2(string includePattern, params string[] expected)
+        {
+            //Debugger.Launch();
+            string root = Path.GetPathRoot(Environment.CurrentDirectory);
+            includePattern = Path.Combine(root, includePattern);
+
+            var matcher = new Matcher();
+            matcher.AddInclude(includePattern);
+            // split into separator and alt-separator. or not.
+            // also split into absolute/relative paths.
+            PatternMatchingResult result = matcher.Match(root, GetFileList()); 
+            
+            if (expected.Length == 0)
+            {
+                Assert.False(result.HasMatches);
+                Assert.False(result.Files.Any());
+            }
+            else
+            {
+                Assert.True(result.HasMatches);
+                IEnumerable<string> actual = result.Files.Select(f => f.Path);
+                AssertExtensions.CollectionEqual(expected, actual, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        // test addexclude, how? Maybe excluding obj, bin using the same patterns from above.
+
+        // test GetFileList without rootDir and absolute patterns (this is not needed).
+
+        // test GetFileList with rootDir and relative patterns (baseline), this is already tested in RootDir_IsPathRoot_WithInMemory
     }
 }

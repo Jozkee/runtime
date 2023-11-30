@@ -3,7 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
+using static Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns.PatternBuilder;
 
 namespace Microsoft.Extensions.FileSystemGlobbing.Internal.PatternContexts
 {
@@ -36,8 +38,27 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Internal.PatternContexts
         {
             // copy the current frame
             FrameData frame = Frame;
+            frame.RootDir = directory.FullName;
 
-            if (IsStackEmpty() || Frame.IsNotApplicable)
+            if (Pattern is LinearPattern linear && System.IO.Path.IsPathRooted(linear._pattern) && IsStackEmpty())
+            {
+                // first time we are pushing a directory, and the pattern is rooted we need to adjust SegmentIndex to be on par with the root directory.
+                string[] rootSegments = directory.FullName.Split(System.IO.Path.DirectorySeparatorChar); // todo this should be splitted in LinearPatern so it makes more sense.
+                foreach (string segment in rootSegments)
+                {
+                    if (TestMatchingSegment(segment))
+                    {
+                        Frame.SegmentIndex++;
+                    }
+                    else
+                    {
+                        //frame.IsNotApplicable = true;
+                        break;
+                    }
+                }
+                frame.SegmentIndex = Frame.SegmentIndex;
+            }
+            else if (IsStackEmpty() || Frame.IsNotApplicable)
             {
                 // when the stack is being initialized
                 // or no change is required.
@@ -70,6 +91,7 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Internal.PatternContexts
             public int SegmentIndex;
             public bool InStem;
             private IList<string>? _stemItems;
+            internal string? RootDir;
 
             public IList<string> StemItems => _stemItems ??= new List<string>();
 
@@ -90,7 +112,7 @@ namespace Microsoft.Extensions.FileSystemGlobbing.Internal.PatternContexts
                 return false;
             }
 
-            return Pattern.Segments[Frame.SegmentIndex].Match(value);
+            return Pattern.Segments[Frame.SegmentIndex].Match(value); // this is important, we need to rather increase SegmentIndex.
         }
 
         protected string CalculateStem(FileInfoBase matchedFile)
